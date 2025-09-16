@@ -57,35 +57,39 @@ resources:
 # Everything else that isn’t provided by the chart goes here.
 # IMPORTANT: Do NOT duplicate envs that the chart already sets (admin/DB/proxy/health).
 extraEnv:
+  # admin creds (or keep your existing secret-based ones—just don't duplicate both)
+  - name: KEYCLOAK_ADMIN
+    value: "admin"
+  - name: KEYCLOAK_ADMIN_PASSWORD
+    value: "admin"
+
+  # serve over HTTP on /keycloak behind proxy
   - name: KC_HTTP_ENABLED
     value: "true"
   - name: KC_HTTP_RELATIVE_PATH
     value: "/keycloak"
-  - name: KC_HOSTNAME_URL
-    value: "https://hauth.test.poziomk3.pl/keycloak"
-  - name: KC_HOSTNAME_STRICT
-    value: "false"
-  - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
-    value: "false"
-  - name: KC_LOG_LEVEL
-    value: "knemognition.heartauth.authenticators:debug"
-  - name: KC_HTTP_MANAGEMENT_RELATIVE_PATH
-    value: "/"
+  - name: KC_PROXY_HEADERS
+    value: "xforwarded"   # works well with Traefik
+
+  # database
+  - name: KC_DB
+    value: "postgres"
   - name: KC_DB_URL
-    value: "jdbc:postgresql://postgres:5432/keycloak"
-  # Optional cluster discovery (safe with 1 replica, useful later)
-  - name: JGROUPS_DISCOVERY_PROTOCOL
-    value: "dns.DNS_PING"
-  - name: JGROUPS_DISCOVERY_PROPERTIES
-    value: "dns_query=keycloak-iam-headless.default.svc.cluster.local"
-  - name: KC_CACHE
-    value: "ispn"
-  - name: KC_CACHE_STACK
-    value: "kubernetes"
+    value: "jdbc:postgresql://postgres:5432/keycloak?sslmode=disable"
   - name: KC_DB_USERNAME
     value: "keycloak"
   - name: KC_DB_PASSWORD
     value: "PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g="
+
+  # health
+  - name: KC_HEALTH_ENABLED
+    value: "true"
+
+  # disable clustering for now (prevents JGroups startup issues)
+  - name: KC_CACHE
+    value: "ispn"
+  - name: KC_CACHE_STACK
+    value: "local"
 
 ingress:
   enabled: true
