@@ -1,64 +1,38 @@
-# --- Image: use your current custom image so the theme/providers are available ---
+# values.yaml (Bitnami keycloak chart)
 
 global:
   security:
-    allowInsecureImages: true
-image:
-  registry: poziomk3
-  repository: keycloak-iam
+    allowInsecureImages: true   # silence their image verification
+
+image:                           # run YOUR image
+  registry: ''
+  repository: poziomk3/keycloak-iam
   tag: v1.0.0
   pullPolicy: IfNotPresent
-  debug: false
 
-# --- Admin user like your bootstrap secret ---
 auth:
   adminUser: admin
   adminPassword: admin
 
-# --- HTTP on /keycloak (and we’ll set HOSTNAME_URL via env) ---
+# Keycloak runtime
 httpEnabled: true
 httpRelativePath: "/keycloak"
 hostnameStrict: false
-proxyHeaders: "xforwarded" 
-# Keep default caches, logging, probes. Adjust to your probes.
+proxyHeaders: "xforwarded"
 logging:
   output: default
   level: INFO
 
-livenessProbe:
-  enabled: true
-  initialDelaySeconds: 120
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 6
-  successThreshold: 1
-
-readinessProbe:
-  enabled: true
-  initialDelaySeconds: 60
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 12
-  successThreshold: 1
-
-# Match your resources
-resources:
-  requests:
-    cpu: "100m"
-    memory: "256Mi"
-  limits:
-    cpu: "500m"
-    memory: "512Mi"
-
-# Expose mgmt port 9000 (default in chart) and http service as ClusterIP
 containerPorts:
   http: 8080
   management: 9000
 
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: 500m, memory: 512Mi }
+
 service:
   type: ClusterIP
-  http:
-    enabled: true
   ports:
     http: 80
     https: 443
@@ -68,90 +42,104 @@ networkPolicy:
   allowExternal: true
   allowExternalEgress: true
 
+# Use your existing Postgres (no Bitnami dependency)
 postgresql:
   enabled: false
 
 externalDatabase:
-  host: "postgres"
+  host: "postgres"     # your svc name
   port: 5432
   user: "keycloak"
   database: "keycloak"
   schema: "public"
   password: "PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g="
 
-# --- Import your realm using keycloak-config-cli (runs once, idempotent) ---
+# Realm import (idempotent) with a NON-Bitnami config-cli image
 keycloakConfigCli:
   enabled: true
   availabilityCheck:
     enabled: true
-  # Provide the realm as an embedded file (exactly your JSON)
+  image:                 
+    registry: ""
+    repository: adorsys/keycloak-config-cli
+    tag: "6.2.3"
+    pullPolicy: IfNotPresent
   configuration:
     realm.json: |
       {
-        "realm": "heartauth",
-        "displayName": "HeartAuth Showcase",
-        "enabled": true,
-        "registrationAllowed": true,
-        "loginWithEmailAllowed": true,
-        "loginTheme": "heartAuth",
-        "browserFlow": "heartAuth-browser",
-        "attributes": {
-          "ha-orch.base-url": "http://internal-orchestrator:8080",
-          "ha-orch.api-key": "l+Uj2Rb94KjMRwJFB5+SZuBWsMpHI1KMQFkSBd+HSDg=",
-          "ha-pairing.ttl-seconds": "300",
-          "ha-challenge.ttl-seconds": "300"
-        },
-        "authenticationFlows": [
-          {
-            "alias": "heartAuth-browser",
-            "description": "Browser login only",
-            "providerId": "basic-flow",
-            "topLevel": true,
-            "builtIn": false,
-            "authenticationExecutions": [
-              {
-                "authenticator": "auth-username-password-form",
-                "requirement": "REQUIRED",
-                "priority": 0,
-                "authenticatorFlow": false
-              }
-            ]
+      "realm": "heartauth",
+      "displayName": "HeartAuth Showcase",
+      "enabled": true,
+      "registrationAllowed": true,
+      "loginWithEmailAllowed": true,
+      "loginTheme": "heartAuth",
+      "browserFlow": "heartAuth-browser",
+      "attributes": {
+        "ha-orch.base-url": "http://internal-orchestrator:8080",
+        "ha-orch.api-key": "l+Uj2Rb94KjMRwJFB5+SZuBWsMpHI1KMQFkSBd+HSDg=",
+        "ha-pairing.ttl-seconds": "300",
+        "ha-challenge.ttl-seconds": "300"
+      },
+      "authenticationFlows": [
+        {
+          "alias": "heartAuth-browser",
+          "description": "Browser login only",
+          "providerId": "basic-flow",
+          "topLevel": true,
+          "builtIn": false,
+          "authenticationExecutions": [
+            {
+              "authenticator": "auth-username-password-form",
+              "requirement": "REQUIRED",
+              "priority": 0,
+              "authenticatorFlow": false
+            }
+          ]
+        }
+      ],
+
+      "clients": [
+        {
+          "clientId": "heartauth-web-client",
+          "publicClient": true,
+          "secret": "oRyaqFugh6lgJY+rTAaUlRUJY3BMpAPMYkMvIWmrGSU=",
+          "redirectUris": ["*"],
+          "webOrigins": ["*"],
+          "attributes": {
+            "pkce.code.challenge.method": "S256"
           }
-        ],
-        "clients": [
-          {
-            "clientId": "heartauth-web-client",
-            "publicClient": true,
-            "secret": "oRyaqFugh6lgJY+rTAaUlRUJY3BMpAPMYkMvIWmrGSU=",
-            "redirectUris": ["*"],
-            "webOrigins": ["*"],
-            "attributes": { "pkce.code.challenge.method": "S256" }
-          }
-        ],
-        "browserSecurityHeaders": {
-          "xFrameOptions": "SAMEORIGIN",
-          "contentSecurityPolicy": "frame-ancestors *; frame-src 'self'; object-src 'none';"
-        },
-        "users": [
-          {
-            "id": "00000000-0000-0000-0000-000000000000",
-            "username": "Nervarien",
-            "enabled": true,
-            "email": "nervarien@example.com",
-            "emailVerified": true,
-            "firstName": "Jan",
-            "lastName": "Nowak",
-            "credentials": [
-              { "type": "password", "value": "Nervarien", "temporary": false }
-            ],
-            "attributes": { "hauthDeviceRegistered": "true" },
-            "requiredActions": []
-          }
-        ]
+        }
+      ],
+
+      "browserSecurityHeaders": {
+        "xFrameOptions": "SAMEORIGIN",
+        "contentSecurityPolicy": "frame-ancestors *; frame-src 'self'; object-src 'none';"
+      },
+
+      "users": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "username": "Nervarien",
+          "enabled": true,
+          "email": "nervarien@example.com",
+          "emailVerified": true,
+          "firstName": "Jan",
+          "lastName": "Nowak",
+          "credentials": [
+            { "type": "password", "value": "Nervarien", "temporary": false }
+          ],
+          "attributes": {
+            "hauthDeviceRegistered": "true"
+          },
+          "requiredActions": []
+        }
+      ]
       }
 
+
 tls:
-  enabled: false
+  enabled: false  
+
 ingress:
   enabled: true
   ingressClassName: traefik
@@ -164,6 +152,5 @@ ingress:
   servicePort: http
   tls: true
   extraTls:
-    - hosts:
-        - hauth.test.poziomk3.pl
+    - hosts: [hauth.test.poziomk3.pl]
       secretName: hauth-tls

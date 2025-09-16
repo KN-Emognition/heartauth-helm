@@ -1,4 +1,4 @@
-SERVICES := auth-webclient postgres redis keycloak-iam
+SERVICES := keycloak-iam auth-webclient postgres redis 
 
 CHART_auth-webclient     := oci://ghcr.io/icoretech/charts/nextjs
 VALUES_auth-webclient    := services/auth-webclient/values.yaml
