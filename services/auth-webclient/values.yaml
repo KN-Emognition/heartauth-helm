@@ -91,15 +91,14 @@ web:
 
   ingress:
     enabled: true
-    ingressClassName: traefik          # K3s default
+    ingressClassName: traefik
     annotations:
-      kubernetes.io/ingress.class: traefik
-      traefik.ingress.kubernetes.io/router.entrypoints: web   # only port 80
+      traefik.ingress.kubernetes.io/router.entrypoints: web  # 80-only
     hosts:
-      - host: hauth.test.poziomk3.pl    # <- your DNS pointing to the VPS
+      - host: hauth.test.poziomk3.pl
         paths:
-          - path: /
-            pathType: Prefix
+          - /                 # <-- string, not an object
+    tls: []  
       # - hosts:
       #     - myapp.example.com
       #   secretName: my-existing-tls-secret # Specify your pre-created secret name here.

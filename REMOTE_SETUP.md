@@ -8,6 +8,7 @@ sudo ufw allow 6443/tcp        # Kubernetes API server
 sudo ufw --force enable
 
 curl -sfL https://get.k3s.io | sh -
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 
 mkdir -p ~/.kube
