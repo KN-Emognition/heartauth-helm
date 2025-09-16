@@ -46,4 +46,4 @@ deploy-%:
 	chart="$(CHART_$*)"; \
 	values="$(VALUES_$*)"; \
 	echo "==> deploying $$svc (ns=$$ns)"; \
-	helm upgrade --install "$$svc" "$$chart" -n "$$ns" --create-namespace -f "$$values" $(HELM_DEPLOY_FLAGS)
+	helm upgrade --install "$$svc" "$$chart" -n "$$ns" --create-namespace -f "$$values" $(HELM_DEPLOY_FLAGS)  --timeout 12m0s

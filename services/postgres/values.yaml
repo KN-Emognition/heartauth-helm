@@ -63,7 +63,21 @@ primary:
       postgresql: 5432
 
   persistence:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
     enabled: true
-    existingClaim: pgdata     
-    size: 1Gi                 
-    mountPath: /bitnami/postgresql   
+    storageClass: local-path     # k3s default SC
+    size: 1Gi
+  podSecurityContext:
+    fsGroup: 1001
+  containerSecurityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
+    runAsNonRoot: true
+
+volumePermissions:
+  enabled: true

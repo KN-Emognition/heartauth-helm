@@ -32,14 +32,23 @@ master:
 
   persistence:
     enabled: true
-    existingClaim: redis-data
-    path: /data
-    size: 1Gi    
-    accessModes:
-      - ReadWriteOnce
+    storageClass: local-path
+    size: 1Gi
+  podSecurityContext:
+    enabled: true
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
 
   service:
     type: ClusterIP
     ports:
       redis: 6379
 
+volumePermissions:
+  enabled: true
