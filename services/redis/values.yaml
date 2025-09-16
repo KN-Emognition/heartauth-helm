@@ -1,3 +1,8 @@
+image:
+  registry: ''
+  repository: redis
+  tag: redis:7-alpine
+
 architecture: standalone
 
 auth:

@@ -35,7 +35,7 @@ template-%:
 	values="$(VALUES_$*)"; \
 	echo "==> templating $$svc (ns=$$ns)"; \
 	mkdir -p rendered; \
-	helm template "$$svc" "$$chart" -n "$$ns" -f "$$values" $(HELM_TPL_FLAGS) > "rendered/$$svc.yaml"
+	helm template "$$svc" "$$chart" -n "$$ns" -f "$$values" $(HELM_TPL_FLAGS) > "rendered/$$svc.yaml" --set global.security.allowInsecureImages=true
 
 # Upgrade/Install all services
 deploy: $(addprefix deploy-,$(SERVICES))
@@ -46,4 +46,4 @@ deploy-%:
 	chart="$(CHART_$*)"; \
 	values="$(VALUES_$*)"; \
 	echo "==> deploying $$svc (ns=$$ns)"; \
-	helm upgrade --install "$$svc" "$$chart" -n "$$ns" --create-namespace -f "$$values" $(HELM_DEPLOY_FLAGS)  --timeout 12m0s
+	helm upgrade --install "$$svc" "$$chart" -n "$$ns" --create-namespace -f "$$values" $(HELM_DEPLOY_FLAGS)  --timeout 12m0s --set global.security.allowInsecureImages=true
