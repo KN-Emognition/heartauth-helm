@@ -1,3 +1,6 @@
+global:
+  security:
+    allowInsecureImages: true  # silence image verification warning
 image:
   registry: ''
   repository: redis

@@ -1,3 +1,7 @@
+global:
+  security:
+    allowInsecureImages: true  # silence image verification warning
+
 image:
   registry: ''
   repository: postgres
@@ -12,6 +16,11 @@ auth:
   usePasswordFiles: true       
 
 primary:
+  containerSecurityContext:
+    enabled: true
+    readOnlyRootFilesystem: false 
+    runAsUser: 999
+    runAsGroup: 999
   resources:
     requests:
       cpu: 100m
