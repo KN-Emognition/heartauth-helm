@@ -1,0 +1,59 @@
+name: Deploy (Helm via Makefile)
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+# Prevent overlapping deploys from the same branch
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${KUBECONFIG_B64}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+        env:
+          # Add this in your repo: Settings → Secrets and variables → Actions
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      # Optional (nice diffs): safe to delete
+      - name: Install helm-diff plugin
+        run: helm plugin install https://github.com/databus23/helm-diff || true
+
+      - name: Deploy with Makefile
+        run: |
+          # If your Makefile needs environment vars, export them here.
+          # export RELEASE_NAME=myapp
+          # export NAMESPACE=production
+          # export CHART=./chart
+          # export VALUES=values.yaml
+          # export EXTRA_VALUES="--set image.tag=${{ github.sha }}"
+          make deploy
+
+      # Optional: quick status summary
+      - name: Post-deploy status
+        run: |
+          kubectl get nodes
+          kubectl get ns
+          kubectl -n "${NAMESPACE:-default}" get deploy,svc,ingress || true
