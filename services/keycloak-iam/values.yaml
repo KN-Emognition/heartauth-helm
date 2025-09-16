@@ -1,156 +1,103 @@
-# values.yaml (Bitnami keycloak chart)
+replicaCount: 1
 
-global:
-  security:
-    allowInsecureImages: true   # silence their image verification
-
-image:                           # run YOUR image
-  registry: ''
-  repository: poziomk3/keycloak-iam
+image:
+  repository: poziomk3/keycloak-iam   # your custom image with realm baked in
   tag: v1.0.0
   pullPolicy: IfNotPresent
 
-auth:
-  adminUser: admin
-  adminPassword: admin
+admin:
+  user: admin
+  # If you want a fixed password, also precreate a secret and reference it via admin.existingSecret.
+  # Otherwise Keycloak generates a random one unless your chart template sets default; we’ll force via env below.
 
-# Keycloak runtime
-httpEnabled: true
-httpRelativePath: "/keycloak"
-hostnameStrict: false
-proxyHeaders: "xforwarded"
-logging:
-  output: default
-  level: INFO
-
-containerPorts:
+ports:
   http: 8080
-  management: 9000
-
-resources:
-  requests: { cpu: 100m, memory: 256Mi }
-  limits:   { cpu: 500m, memory: 512Mi }
 
 service:
   type: ClusterIP
-  ports:
-    http: 80
-    https: 443
+  httpPort: 80
 
-networkPolicy:
+proxy:
   enabled: true
-  allowExternal: true
-  allowExternalEgress: true
+  # mode: forwarded   # default; use xforwarded if you prefer:
+# extraEnv supports KC_PROXY_HEADERS, so you can control exactly.
 
-# Use your existing Postgres (no Bitnami dependency)
-postgresql:
-  enabled: false
-
-externalDatabase:
-  host: "postgres"     # your svc name
+database:
+  vendor: "postgres"
+  host: "postgres"        # your Service name for Postgres
   port: 5432
-  user: "keycloak"
   database: "keycloak"
-  schema: "public"
-  password: "PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g="
+  existingSecret:
+    secretName: keycloak-db-creds
+    userKey: username
+    passwordKey: password
 
-# Realm import (idempotent) with a NON-Bitnami config-cli image
-keycloakConfigCli:
-  enabled: true
-  availabilityCheck:
-    enabled: true
-  image:                 
-    registry: ""
-    repository: adorsys/keycloak-config-cli
-    tag: "6.2.3"
-    pullPolicy: IfNotPresent
-  configuration:
-    realm.json: |
-      {
-      "realm": "heartauth",
-      "displayName": "HeartAuth Showcase",
-      "enabled": true,
-      "registrationAllowed": true,
-      "loginWithEmailAllowed": true,
-      "loginTheme": "heartAuth",
-      "browserFlow": "heartAuth-browser",
-      "attributes": {
-        "ha-orch.base-url": "http://internal-orchestrator:8080",
-        "ha-orch.api-key": "l+Uj2Rb94KjMRwJFB5+SZuBWsMpHI1KMQFkSBd+HSDg=",
-        "ha-pairing.ttl-seconds": "300",
-        "ha-challenge.ttl-seconds": "300"
-      },
-      "authenticationFlows": [
-        {
-          "alias": "heartAuth-browser",
-          "description": "Browser login only",
-          "providerId": "basic-flow",
-          "topLevel": true,
-          "builtIn": false,
-          "authenticationExecutions": [
-            {
-              "authenticator": "auth-username-password-form",
-              "requirement": "REQUIRED",
-              "priority": 0,
-              "authenticatorFlow": false
-            }
-          ]
-        }
-      ],
+extraEnv:
+  # Admin bootstrap (so you don’t rely on template’s secret generator)
+  - name: KEYCLOAK_ADMIN
+    value: "admin"
+  - name: KEYCLOAK_ADMIN_PASSWORD
+    value: "admin"
 
-      "clients": [
-        {
-          "clientId": "heartauth-web-client",
-          "publicClient": true,
-          "secret": "oRyaqFugh6lgJY+rTAaUlRUJY3BMpAPMYkMvIWmrGSU=",
-          "redirectUris": ["*"],
-          "webOrigins": ["*"],
-          "attributes": {
-            "pkce.code.challenge.method": "S256"
-          }
-        }
-      ],
+  # Use xforwarded if that’s what your ingress/proxy sends
+  - name: KC_PROXY_HEADERS
+    value: "xforwarded"
 
-      "browserSecurityHeaders": {
-        "xFrameOptions": "SAMEORIGIN",
-        "contentSecurityPolicy": "frame-ancestors *; frame-src 'self'; object-src 'none';"
-      },
+  # Serve under a relative path if you want (optional)
+  - name: KC_HTTP_RELATIVE_PATH
+    value: "/keycloak"
 
-      "users": [
-        {
-          "id": "00000000-0000-0000-0000-000000000000",
-          "username": "Nervarien",
-          "enabled": true,
-          "email": "nervarien@example.com",
-          "emailVerified": true,
-          "firstName": "Jan",
-          "lastName": "Nowak",
-          "credentials": [
-            { "type": "password", "value": "Nervarien", "temporary": false }
-          ],
-          "attributes": {
-            "hauthDeviceRegistered": "true"
-          },
-          "requiredActions": []
-        }
-      ]
-      }
+  # Realm import on startup (works because realm is baked into the image)
+  # - name: KC_IMPORT
+    # value: "/opt/keycloak/data/import/realm.json"
+  - name: KC_IMPORT_STRATEGY
+    value: "IGNORE_EXISTING"   # safe re-runs
 
-
-tls:
-  enabled: false  
+  # Optional: discovery for cache clustering (single replica still ok)
+  - name: JGROUPS_DISCOVERY_PROTOCOL
+    value: "dns.DNS_PING"
+  - name: JGROUPS_DISCOVERY_PROPERTIES
+    value: "dns_query={{ .Release.Name }}-headless.default.svc.{{ .Values.clusterDomain | default \"cluster.local\" }}"
+  - name: KC_CACHE
+    value: "ispn"
+  - name: KC_CACHE_STACK
+    value: "kubernetes"
 
 ingress:
   enabled: true
-  ingressClassName: traefik
+  className: traefik
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
-  hostname: hauth.test.poziomk3.pl
-  path: "{{ .Values.httpRelativePath }}"
-  pathType: Prefix
-  servicePort: http
-  tls: true
-  extraTls:
-    - hosts: [hauth.test.poziomk3.pl]
-      secretName: hauth-tls
+    cert-manager.io/cluster-issuer: letsencrypt
+  rules:
+    - host: hauth.test.poziomk3.pl
+      paths:
+        - path: /keycloak
+          pathType: Prefix
+  tls:
+    - secretName: hauth-tls
+      hosts:
+        - hauth.test.poziomk3.pl
+
+health:
+  enabled: true
+  startupProbe: |
+    httpGet:
+      path: /keycloak/health
+      port: http
+    initialDelaySeconds: 30
+    timeoutSeconds: 1
+    failureThreshold: 60
+    periodSeconds: 5
+  readinessProbe: |
+    httpGet:
+      path: /keycloak/health/ready
+      port: http
+    initialDelaySeconds: 30
+    timeoutSeconds: 1
+  livenessProbe: |
+    httpGet:
+      path: /keycloak/health/live
+      port: http
+    initialDelaySeconds: 0
+    timeoutSeconds: 5

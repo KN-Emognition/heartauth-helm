@@ -14,7 +14,7 @@ CHART_redis        := oci://registry-1.docker.io/cloudpirates/redis
 VALUES_redis       := services/redis/values.yaml
 NAMESPACE_redis    := default
 
-CHART_keycloak-iam     := oci://registry-1.docker.io/bitnamicharts/keycloak
+CHART_keycloak-iam     := barravar/keycloak
 VALUES_keycloak-iam    := services/keycloak-iam/values.yaml
 NAMESPACE_keycloak-iam := default
 
@@ -24,6 +24,7 @@ HELM_TPL_FLAGS    ?=
 .PHONY: repos template deploy $(SERVICES) template-% deploy-%
 
 repos:
+	@helm repo add barravar https://barravar.github.io/helm-charts
 	@helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/ >/dev/null 2>&1 || true
 	@helm repo update >/dev/null
 
