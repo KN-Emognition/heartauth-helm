@@ -11,9 +11,6 @@ image:
 # DB connection (chart sets KC_DB/KC_DB_URL_* and creates Secret for user/pass)
 database:
   vendor: "postgres"
-  host: "postgres"
-  port: "5432"
-  database: "keycloak"
 
 # Expose HTTP via Service
 service:
@@ -60,10 +57,6 @@ resources:
 # Everything else that isn’t provided by the chart goes here.
 # IMPORTANT: Do NOT duplicate envs that the chart already sets (admin/DB/proxy/health).
 extraEnv:
-  - name: KEYCLOAK_ADMIN
-    value: "admin"
-  - name: KEYCLOAK_ADMIN_PASSWORD
-    value: "admin"
   - name: KC_HTTP_ENABLED
     value: "true"
   - name: KC_HTTP_RELATIVE_PATH
@@ -78,7 +71,8 @@ extraEnv:
     value: "knemognition.heartauth.authenticators:debug"
   - name: KC_HTTP_MANAGEMENT_RELATIVE_PATH
     value: "/"
-
+  - name: KC_DB_URL
+    value: "jdbc:postgresql://postgres-postgresql.default.svc.cluster.local:5432/keycloak"
   # Optional cluster discovery (safe with 1 replica, useful later)
   - name: JGROUPS_DISCOVERY_PROTOCOL
     value: "dns.DNS_PING"
