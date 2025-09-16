@@ -72,7 +72,7 @@ extraEnv:
   - name: KC_HTTP_MANAGEMENT_RELATIVE_PATH
     value: "/"
   - name: KC_DB_URL
-    value: "jdbc:postgresql://postgres-postgresql.default.svc.cluster.local:5432/keycloak"
+    value: "jdbc:postgresql://postgres:5432/keycloak"
   # Optional cluster discovery (safe with 1 replica, useful later)
   - name: JGROUPS_DISCOVERY_PROTOCOL
     value: "dns.DNS_PING"
