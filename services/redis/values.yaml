@@ -1,57 +1,70 @@
-global:
-  security:
-    allowInsecureImages: true  # silence image verification warning
 image:
-  registry: ''
+  registry: docker.io
   repository: redis
-  tag: redis:7-alpine
+  tag: "7-alpine"        # <- IMPORTANT: just "7-alpine", not "redis:7-alpine"
+  pullPolicy: IfNotPresent
 
 architecture: standalone
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 6379
 
 auth:
-  enabled: false  
-commonConfiguration: |-
-  appendonly yes
-  save ""                     
-  maxmemory 256mb
-  maxmemory-policy allkeys-lru
+  enabled: false         # like ALLOW_EMPTY_PASSWORD=yes
 
-master:
-  kind: StatefulSet          
-  containerPorts:
-    redis: 6379
-  livenessProbe:
-    enabled: true
-  readinessProbe:
-    enabled: true
+config:
+  mountPath: /usr/local/etc/redis
+  content: |
+    bind 0.0.0.0
+    port 6379
+    appendonly yes
+    save ""
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
 
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "256Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
-
-  persistence:
-    enabled: true
-    storageClass: local-path
-    size: 1Gi
-  podSecurityContext:
-    enabled: true
-    fsGroup: 1001
-  containerSecurityContext:
-    enabled: true
-    runAsUser: 1001
-    runAsGroup: 1001
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-
-  service:
-    type: ClusterIP
-    ports:
-      redis: 6379
-
-volumePermissions:
+persistence:
   enabled: true
+  storageClass: local-path
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /data
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+containerSecurityContext:
+  runAsUser: 999
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+
+podSecurityContext:
+  fsGroup: 999
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+# Ensure sentinel is off
+sentinel:
+  enabled: false

@@ -1,92 +1,118 @@
-global:
-  security:
-    allowInsecureImages: true  # silence image verification warning
-
+# --- Image (official, non-Bitnami)
 image:
-  registry: ''
+  registry: docker.io
   repository: postgres
-  tag: 16
+  tag: "16"
   pullPolicy: IfNotPresent
 
-architecture: standalone
+# Keep the default StatefulSet (more stable storage identity)
+useDeployment: false
 
-auth:
-  enablePostgresUser: true
-  postgresPassword: "admin"     
-  usePasswordFiles: true       
+# Run as the postgres uid/gid the chart expects (non-root, read-only FS off for init scripts that write temp files)
+podSecurityContext:
+  fsGroup: 999
+  supplementalGroups: [999]
 
-primary:
-  containerSecurityContext:
-    enabled: true
-    readOnlyRootFilesystem: false 
-    runAsUser: 999
-    runAsGroup: 999
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: false  # <-- important for official image + init scripts
+  runAsNonRoot: true
+  runAsGroup: 999
+  runAsUser: 999
+  capabilities:
+    drop: ["ALL"]
 
-  livenessProbe:
-    enabled: true
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
-  readinessProbe:
-    enabled: true
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
+# Service inside cluster
+service:
+  type: ClusterIP
+  port: 5432
 
-  initdb:
-    user: postgres
-    scripts:
-      01-init.sql: |
-        DO
-        $$BEGIN
-           IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'keycloak') THEN
-              CREATE ROLE keycloak LOGIN PASSWORD 'PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g=';
-           END IF;
-        END$$;
+# Superuser. You can switch to an existing Secret later; this is fine for dev.
+settings:
+  superuser:
+    value: postgres
+  superuserPassword:
+    value: admin
+  # Example: authMethod: "md5"    # optional
+  # initDbArgs: "--auth-local=md5 --auth-host=md5"  # optional
 
+# Optional “app database” helper (if you want a single DB/user made by env)
+# userDatabase:
+#   name:
+#     value: mydb
+#   user:
+#     value: myuser
+#   password:
+#     value: mypass
+
+# Your bootstrap SQL (idempotent) – runs once when the PVC is empty
+customScripts:
+  01-init.sql: |
+    DO
+    $do$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'keycloak') THEN
+        CREATE ROLE keycloak LOGIN PASSWORD 'PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g=';
+      END IF;
+    END
+    $do$;
+
+    DO
+    $do$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'keycloak') THEN
         CREATE DATABASE keycloak OWNER keycloak;
-        GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
+      END IF;
+    END
+    $do$;
 
-        DO
-        $$BEGIN
-           IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'orchestrator') THEN
-              CREATE ROLE orchestrator LOGIN PASSWORD 'G6c9WcIhiosNOI/zJYEIziHB7Lp6vOCE2WiqKl3azQ8=';
-           END IF;
-        END$$;
+    GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
 
+    DO
+    $do$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'orchestrator') THEN
+        CREATE ROLE orchestrator LOGIN PASSWORD 'G6c9WcIhiosNOI/zJYEIziHB7Lp6vOCE2WiqKl3azQ8=';
+      END IF;
+    END
+    $do$;
+
+    DO
+    $do$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'orchestrator') THEN
         CREATE DATABASE orchestrator OWNER orchestrator;
-        GRANT ALL PRIVILEGES ON DATABASE orchestrator TO orchestrator;
+      END IF;
+    END
+    $do$;
 
-  service:
-    type: ClusterIP
-    ports:
-      postgresql: 5432
+    GRANT ALL PRIVILEGES ON DATABASE orchestrator TO orchestrator;
 
-  persistence:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    enabled: true
-    storageClass: local-path     # k3s default SC
-    size: 1Gi
-  podSecurityContext:
-    fsGroup: 1001
-  containerSecurityContext:
-    runAsUser: 1001
-    runAsGroup: 1001
-    runAsNonRoot: true
+# Storage: k3s default class + 1Gi
+storage:
+  className: local-path
+  requestedSize: 1Gi
+  accessModes: ["ReadWriteOnce"]
 
-volumePermissions:
+# Basic probes (chart already has sane defaults; override if needed)
+livenessProbe:
   enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
