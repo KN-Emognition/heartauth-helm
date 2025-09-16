@@ -1,29 +1,25 @@
-# ========= CONFIGURE YOUR 5 SERVICES HERE =========
-SERVICES := auth-webclient
+SERVICES := auth-webclient postgres redis keycloak-iam
 
-# For each service, set its chart URL (OCI) and values file path
 CHART_auth-webclient   := oci://ghcr.io/icoretech/charts/nextjs
 VALUES_auth-webclient  := services/auth-webclient/values.yaml
 NAMESPACE_auth-webclient:= default
 
-CHART_api    := oci://ghcr.io/OWNER/charts/api
-VALUES_api   := values/api.yaml
-NAMESPACE_api:= default
+CHART_postgres    := oci://registry-1.docker.io/bitnamicharts/postgresql
+VALUES_postgres   := services/postgres/values.yaml
+NAMESPACE_postgres:= default
 
-CHART_worker := oci://ghcr.io/OWNER/charts/worker
-VALUES_worker:= values/worker.yaml
-NAMESPACE_worker:= default
+CHART_redis := oci://registry-1.docker.io/bitnamicharts/redis
+VALUES_redis:= services/redis/values.yaml
+NAMESPACE_redis:= default
 
-CHART_svc4   := oci://ghcr.io/OWNER/charts/svc4
-VALUES_svc4  := values/svc4.yaml
-NAMESPACE_svc4:= default
+CHART_keycloak-iam   := oci://registry-1.docker.io/bitnamicharts/keycloak
+VALUES_keycloak-iam  := services/keycloak-iam/values.yaml
+NAMESPACE_keycloak-iam:= default
 
 CHART_svc5   := oci://ghcr.io/OWNER/charts/svc5
 VALUES_svc5  := values/svc5.yaml
 NAMESPACE_svc5:= default
-# ==================================================
 
-# Helm flags you might want to tweak once (applied to every service)
 HELM_DEPLOY_FLAGS ?= --atomic --wait --timeout 10m
 HELM_TPL_FLAGS    ?=
 

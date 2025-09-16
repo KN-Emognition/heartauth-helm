@@ -153,13 +153,13 @@ web:
     - name: NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
       value: "heartauth-web-client"
     - name: NEXT_PUBLIC_KEYCLOAK_ISSUER
-      value: "http://app.localhost/keycloak/realms/heartauth"
+      value: "https://hauth.test.poziomk3.pl/keycloak/realms/heartauth"
     - name: NEXTAUTH_URL
-      value: "http://app.localhost"
+      value: "https://hauth.test.poziomk3.pl"
     - name: NEXTAUTH_SECRET
-      value: "REPLACE_ME"
+      value: "oRyaqFugh6lgJY+rTAaUlRUJY3BMpAPMYkMvIWmrGSU="
     - name: NEXT_KEYCLOAK_CLIENT_SECRET
-      value: "REPLACE_ME"
+      value: "oRyaqFugh6lgJY+rTAaUlRUJY3BMpAPMYkMvIWmrGSU="
 
   ## Pod Disruption Budget
   ## https://kubernetes.io/docs/tasks/run-application/configure-pdb/
