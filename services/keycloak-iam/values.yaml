@@ -7,10 +7,6 @@ image:
   tag: v1.0.0
   pullPolicy: IfNotPresent
 
-# Admin bootstrap (chart turns these into a Secret & envs)
-admin:
-  user: "admin"
-  password: "admin"
 
 # DB connection (chart sets KC_DB/KC_DB_URL_* and creates Secret for user/pass)
 database:
@@ -18,8 +14,6 @@ database:
   host: "postgres"
   port: "5432"
   database: "keycloak"
-  user: "keycloak"
-  password: "PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g="
 
 # Expose HTTP via Service
 service:
@@ -66,6 +60,10 @@ resources:
 # Everything else that isn’t provided by the chart goes here.
 # IMPORTANT: Do NOT duplicate envs that the chart already sets (admin/DB/proxy/health).
 extraEnv:
+  - name: KEYCLOAK_ADMIN
+    value: "admin"
+  - name: KEYCLOAK_ADMIN_PASSWORD
+    value: "admin"
   - name: KC_HTTP_ENABLED
     value: "true"
   - name: KC_HTTP_RELATIVE_PATH
@@ -90,7 +88,10 @@ extraEnv:
     value: "ispn"
   - name: KC_CACHE_STACK
     value: "kubernetes"
-
+  - name: KC_DB_USERNAME
+    value: "keycloak"
+  - name: KC_DB_PASSWORD
+    value: "PhQ0wq9xL6c0D535TZqn/Uxk58ayXozu3fPzz927p0g="
 
 ingress:
   enabled: true
