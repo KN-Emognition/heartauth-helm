@@ -23,11 +23,11 @@ jobs:
       - name: Write kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBECONFIG_B64}" | base64 -d > $HOME/.kube/config
+          echo "${TEST_K8S_B64}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
         env:
           # Add this in your repo: Settings → Secrets and variables → Actions
-          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+          TEST_K8S_B64: ${{ secrets.TEST_K8S_B64 }}
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -43,12 +43,6 @@ jobs:
 
       - name: Deploy with Makefile
         run: |
-          # If your Makefile needs environment vars, export them here.
-          # export RELEASE_NAME=myapp
-          # export NAMESPACE=production
-          # export CHART=./chart
-          # export VALUES=values.yaml
-          # export EXTRA_VALUES="--set image.tag=${{ github.sha }}"
           make deploy
 
       # Optional: quick status summary
