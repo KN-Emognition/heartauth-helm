@@ -11,8 +11,18 @@ curl -sfL https://get.k3s.io | sh -
 
 
 mkdir -p ~/.kube
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-sudo chown $(id -u):$(id -g) ~/.kube/config
+
+
+
+sudo mkdir -p /etc/rancher/k3s
+sudo tee /etc/rancher/k3s/config.yaml >/dev/null <<'YAML'
+write-kubeconfig-mode: "0644"
+tls-san:
+  - hauth.test.poziomk3.pl      # your API hostname
+  - 51.91.11.92                 # optional: your public IP
+# optional but nice for external discovery:
+node-external-ip: 51.91.11.92
+YAML
 
 
 echo 'export KUBECONFIG=$HOME/.kube/config' >> ~/.bashrc
@@ -27,7 +37,6 @@ kubectl get pods -A
 SERVER="https://hauth.test.poziomk3.pl:6443"
 CA_DATA=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
 TOKEN=$(kubectl -n cicd get secret github-deployer-token -o jsonpath='{.data.token}' | base64 -d)
-
 
 cat > kubeconfig-github-deployer <<EOF
 apiVersion: v1

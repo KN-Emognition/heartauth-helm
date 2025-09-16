@@ -4,7 +4,7 @@ fullnameOverride: auth-webclient
 web:
   imagePullPolicy: IfNotPresent
   imagePullSecrets: '' # must be present in namespace
-  image: "poziomk3/auth-webclient:v1.0.0" 
+  image: "poziomk3/auth-webclient:v0.1.1" 
   terminationGracePeriodSeconds: 0
   replicaCount: 1
   runtimeClassName:
@@ -90,11 +90,16 @@ web:
     requests:
 
   ingress:
-    enabled: false
-    ingressClassName: nginx
-    annotations: {}
-    hosts: []
-    tls: []
+    enabled: true
+    ingressClassName: traefik          # K3s default
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web   # only port 80
+    hosts:
+      - host: hauth.test.poziomk3.pl    # <- your DNS pointing to the VPS
+        paths:
+          - path: /
+            pathType: Prefix
       # - hosts:
       #     - myapp.example.com
       #   secretName: my-existing-tls-secret # Specify your pre-created secret name here.
