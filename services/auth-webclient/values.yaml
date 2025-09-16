@@ -93,12 +93,15 @@ web:
     enabled: true
     ingressClassName: traefik
     annotations:
-      traefik.ingress.kubernetes.io/router.entrypoints: web  # 80-only
+      cert-manager.io/cluster-issuer: letsencrypt
+      traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     hosts:
       - host: hauth.test.poziomk3.pl
         paths:
-          - /                 # <-- string, not an object
-    tls: []  
+          - /
+    tls:
+      - hosts: [hauth.test.poziomk3.pl]
+        secretName: hauth-tls
       # - hosts:
       #     - myapp.example.com
       #   secretName: my-existing-tls-secret # Specify your pre-created secret name here.

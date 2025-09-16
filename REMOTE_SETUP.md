@@ -63,3 +63,79 @@ base64 -w0 kubeconfig-github-deployer > kubeconfig.b64
 
 
 ```
+
+# Certificate
+
+```sh
+set -euo pipefail
+
+# ====== EDIT THESE ======
+EMAIL="karolzajac.0407@gmail.com"                 # <-- email for Let's Encrypt account
+DOMAIN="hauth.test.poziomk3.pl"         # <-- your app host (DNS -> VPS IP)
+NAMESPACE="default"                     # <-- namespace of your app
+TLS_SECRET_NAME="hauth-tls"    # <-- the Secret name your Ingress/values use
+# ========================
+
+echo "[1/4] Ensure ports 80/443 are open (for ACME http-01 + HTTPS)"
+if command -v ufw >/dev/null 2>&1; then
+  sudo ufw allow 80/tcp || true
+  sudo ufw allow 443/tcp || true
+  sudo ufw --force enable || true
+fi
+
+echo "[2/4] Install Helm if missing"
+if ! command -v helm >/dev/null 2>&1; then
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+fi
+
+echo "[3/4] Install cert-manager (with CRDs)"
+helm repo add jetstack https://charts.jetstack.io >/dev/null
+helm repo update >/dev/null
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --set installCRDs=true
+
+echo "[3.1] Wait for cert-manager to be ready"
+kubectl -n cert-manager rollout status deploy/cert-manager --timeout=120s
+kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=120s
+kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=120s
+
+echo "[4/4] Create Let’s Encrypt ClusterIssuer (Traefik http-01)"
+cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    email: ${EMAIL}
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - http01:
+        ingress:
+          class: traefik
+EOF
+
+# (Optional) Pre-provision a cert for your host now.
+# Not strictly required if your Ingress is annotated and has tls:, but it speeds up first issuance.
+cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ${TLS_SECRET_NAME}
+spec:
+  secretName: ${TLS_SECRET_NAME}
+  dnsNames:
+    - ${DOMAIN}
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+EOF
+
+echo "Done ✅
+- cert-manager installed
+- ClusterIssuer 'letsencrypt' created
+- Certificate '${TLS_SECRET_NAME}' requested in namespace '${NAMESPACE}' for '${DOMAIN}'"
+```
