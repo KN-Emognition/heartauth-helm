@@ -1,5 +1,3 @@
-{{- $mgmt := .Values.keycloak.http.managementRelativePath | default "/" -}}
-{{- $mgmt = printf "%s/" (trimSuffix "/" $mgmt) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,24 +35,17 @@ spec:
 {{- merge .Values.resourcesDefaults .Values.keycloak.resources | toYaml | nindent 12 }}
 
 
-          startupProbe:
-            httpGet:
-              path: {{ printf "%shealth/ready" $mgmt | quote }}
-              port: {{ .Values.keycloak.health.port }}
-            periodSeconds: 5
-            failureThreshold: 120
-
           readinessProbe:
             httpGet:
-              path: {{ printf "%shealth/ready" $mgmt | quote }}
+              path: /keycloak/health/ready
               port: {{ .Values.keycloak.health.port }}
             initialDelaySeconds: 20
             periodSeconds: 5
-            failureThreshold: 60
+            failureThreshold: 160
 
           livenessProbe:
             httpGet:
-              path: {{ printf "%shealth/live" $mgmt | quote }}
+              path: /keycloak/health/live
               port: {{ .Values.keycloak.health.port }}
             initialDelaySeconds: 180
             periodSeconds: 10
