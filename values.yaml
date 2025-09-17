@@ -70,6 +70,9 @@ core:
 
       CREATE DATABASE orchestrator OWNER orchestrator;
       GRANT ALL PRIVILEGES ON DATABASE orchestrator TO orchestrator;
+      
+      ALTER SCHEMA public OWNER TO orchestrator;
+      GRANT USAGE, CREATE ON SCHEMA public TO orchestrator;
     resources: {}
 
 ## Orchestrator shared crypto (mounted as files into /data)
