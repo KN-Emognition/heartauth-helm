@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-iam
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    app: keycloak-iam
+    {{- include "iam.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.keycloak.replicas }}
+  selector:
+    matchLabels:
+      app: keycloak-iam
+  template:
+    metadata:
+      labels:
+        app: keycloak-iam
+    spec:
+      containers:
+        - name: keycloak
+          image: {{ .Values.keycloak.image }}:{{ .Values.keycloak.imageTag }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args: ["start", "--import-realm", "--http-enabled=true"]
+          ports:
+            - containerPort: 8080
+            - containerPort: {{ .Values.keycloak.health.port }}
+          envFrom:
+            - configMapRef: { name: keycloak-iam-config }
+            - secretRef:    { name: keycloak-iam-secret }
+          resources:
+{{- merge .Values.resourcesDefaults .Values.keycloak.resources | toYaml | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: {{ .Values.keycloak.health.port }}
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: {{ .Values.keycloak.health.port }}
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /opt/keycloak/data/import/realm.json
+              subPath: realm.json
+              readOnly: true
+      volumes:
+        - name: data
+          configMap:
+            name: keycloak-data
+            items:
+              - key: realm.json
+                path: realm.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-iam
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    app: keycloak-iam
+    {{- include "iam.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: keycloak-iam
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

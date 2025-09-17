@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-iam-config
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+data:
+  KC_HTTP_ENABLED: "true"
+  KC_HTTP_RELATIVE_PATH: {{ .Values.keycloak.http.relativePath | quote }}
+  KC_HTTP_MANAGEMENT_RELATIVE_PATH: {{ .Values.keycloak.http.managementRelativePath | quote }}
+  KC_HOSTNAME_STRICT: {{ .Values.keycloak.hostname.strict | quote }}
+  KC_HOSTNAME_BACKCHANNEL_DYNAMIC: {{ .Values.keycloak.hostname.backchannelDynamic | quote }}
+  KC_PROXY: {{ .Values.keycloak.proxyMode | quote }}
+  KC_DB: "postgres"
+  KC_DB_USERNAME: {{ .Values.keycloak.db.user | quote }}
+  KC_DB_URL: {{ printf "jdbc:postgresql://%s:%d/%s" .Values.keycloak.db.host (.Values.keycloak.db.port | int) .Values.keycloak.db.name | quote }}
+  KC_HEALTH_ENABLED: "true"
+  KC_LOG_LEVEL: "knemognition.heartauth.authenticators:debug"
+  KC_HOSTNAME_URL: {{ printf "%s://%s%s" (include "iam.scheme" .) (include "iam.webHost" .) .Values.keycloak.http.relativePath | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-iam-secret
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.admin.username | quote }}
+  KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
+  KC_DB_PASSWORD: {{ .Values.keycloak.db.password | quote }}

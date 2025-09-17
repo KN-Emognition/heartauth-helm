@@ -1,0 +1,124 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-postgres-initdb
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+data:
+  01-init.sql: |
+    DO
+    $$BEGIN
+       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .Values.postgres.db.user }}') THEN
+          CREATE ROLE {{ .Values.postgres.db.user }} LOGIN PASSWORD '{{ .Values.postgres.db.password }}';
+       END IF;
+    END$$;
+
+    DO
+    $$BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '{{ .Values.postgres.db.name }}') THEN
+          CREATE DATABASE {{ .Values.postgres.db.name }} OWNER {{ .Values.postgres.db.user }};
+       END IF;
+    END$$;
+
+    ALTER DATABASE {{ .Values.postgres.db.name }} OWNER TO {{ .Values.postgres.db.user }};
+    GRANT CREATE ON DATABASE {{ .Values.postgres.db.name }} TO {{ .Values.postgres.db.user }};
+
+    -- Make 'public' usable if you stick to it
+    \connect {{ .Values.postgres.db.name }}
+    ALTER SCHEMA public OWNER TO {{ .Values.postgres.db.user }};
+    GRANT USAGE, CREATE ON SCHEMA public TO {{ .Values.postgres.db.user }};
+{{- end }}
+---
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-postgres
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    app: keycloak-postgres
+    {{- include "iam.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak-postgres
+  template:
+    metadata:
+      labels:
+        app: keycloak-postgres
+    spec:
+      containers:
+        - name: db
+          image: {{ .Values.postgres.image }}
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef: { name: keycloak-postgres-secret }
+          env:
+            - name: POSTGRES_DB
+              value: postgres
+          resources:
+{{- merge .Values.resourcesDefaults (dict) | toYaml | nindent 12 }}
+          readinessProbe:
+            exec: { command: ["sh","-c","pg_isready -U ${POSTGRES_USER} -d postgres"] }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec: { command: ["sh","-c","pg_isready -U ${POSTGRES_USER} -d postgres"] }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: keycloak-pgdata
+        - name: initdb
+          configMap:
+            name: keycloak-postgres-initdb
+            items:
+              - key: 01-init.sql
+                path: 01-init.sql
+{{- end }}
+---
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: keycloak-pgdata
+  namespace: {{ include "iam.ns" . }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.postgres.persistence.size }}
+  {{- if .Values.postgres.persistence.storageClassName }}
+  storageClassName: {{ .Values.postgres.persistence.storageClassName }}
+  {{- end }}
+{{- end }}
+---
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-postgres
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    app: keycloak-postgres
+    {{- include "iam.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: keycloak-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+{{- end }}

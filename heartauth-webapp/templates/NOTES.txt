@@ -1,0 +1,3 @@
+Host: {{ include "iam.webHost" . }}
+Keycloak: {{ include "iam.scheme" . }}://{{ include "iam.webHost" . }}{{ .Values.keycloak.http.relativePath }}
+Issuer:  {{ include "iam.scheme" . }}://{{ include "iam.webHost" . }}{{ .Values.keycloak.http.relativePath }}/realms/heartauth

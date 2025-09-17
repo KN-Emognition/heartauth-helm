@@ -1,0 +1,37 @@
+{{- if .Values.global.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: heartauth-iam
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+  annotations:
+{{- range $k, $v := .Values.global.ingress.annotations }}
+    {{ $k }}: {{ $v | quote }}
+{{- end }}
+spec:
+  ingressClassName: {{ .Values.global.ingress.className }}
+  {{- if .Values.global.ingress.tls.enabled }}
+  tls:
+    - secretName: {{ .Values.global.ingress.tls.secretName }}
+      hosts:
+        - {{ include "iam.webHost" . | quote }}
+  {{- end }}
+  rules:
+    - host: {{ include "iam.webHost" . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-webclient
+                port: { number: 80 }
+          - path: {{ .Values.keycloak.http.relativePath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak-iam
+                port: { number: 8080 }
+{{- end }}

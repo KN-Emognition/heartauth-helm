@@ -1,0 +1,137 @@
+namespaceOverride: ""
+imagePullPolicy: IfNotPresent
+
+resourcesDefaults:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: 500m, memory: 512Mi }
+
+certManager:
+  createClusterIssuer: false  
+  clusterIssuerName: letsencrypt
+  email: "karolzajac.0407@gmail.com"
+  server: https://acme-v02.api.letsencrypt.org/directory   
+  accountKeySecret: SekretnyNervarien
+
+global:
+  domain: "test.poziomk3.pl"
+  subdomains:
+    webclient: "hauth"  
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    tls:
+      enabled: true
+      secretName: hauth-tls
+    # scheme for URLs in env; auto-computed: https if tls.enabled else http
+
+keycloak:
+  image: "poziomk3/keycloak-iam"
+  imageTag: "v1.0.0"
+  replicas: 1
+  http:
+    relativePath: "/keycloak"     # served under this path
+    managementRelativePath: "/"   # management endpoints base path
+  hostname:
+    strict: false
+    backchannelDynamic: false
+  proxyMode: "edge"               # good default behind Traefik
+  db:
+    host: keycloak-postgres
+    port: 5432
+    name: keycloak
+    user: keycloak
+    password: "CHANGE_ME"          # stored in Secret; prefer SOPS/--set-file
+  admin:
+    username: "admin"
+    password: "admin"              # stored in Secret
+  health:
+    port: 9000                     # Keycloak management port
+  resources: {}
+  realm: |
+    {
+      "realm": "heartauth",
+      "displayName": "HeartAuth Showcase",
+      "enabled": true,
+      "registrationAllowed": true,
+      "loginWithEmailAllowed": true,
+      "loginTheme": "heartAuth",
+      "browserFlow": "heartAuth-browser",
+      "attributes": {
+        "ha-orch.base-url": "https://hauth-internal.test.poziomk3.pl",
+        "ha-orch.api-key": "CHANGE_ME",
+        "ha-pairing.ttl-seconds": "300",
+        "ha-challenge.ttl-seconds": "300"
+      },
+      "authenticationFlows": [
+        {
+          "alias": "heartAuth-browser",
+          "description": "Browser login only",
+          "providerId": "basic-flow",
+          "topLevel": true,
+          "builtIn": false,
+          "authenticationExecutions": [
+            { "authenticator": "auth-username-password-form", "requirement": "REQUIRED", "priority": 0, "authenticatorFlow": false }
+          ]
+        }
+      ],
+      "clients": [
+        {
+          "clientId": "heartauth-web-client",
+          "publicClient": true,
+          "secret": "cjwN39A3onxcHd9IXU3NkBnMn30Bp/DThkTNblrno6g=",
+          "redirectUris": ["*"],
+          "webOrigins": ["*"],
+          "attributes": { "pkce.code.challenge.method": "S256" }
+        }
+      ],
+      "browserSecurityHeaders": {
+        "xFrameOptions": "SAMEORIGIN",
+        "contentSecurityPolicy": "frame-ancestors *; frame-src 'self'; object-src 'none';"
+      },
+      "users": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "username": "Nervarien",
+          "enabled": true,
+          "email": "nervarien@example.com",
+          "emailVerified": true,
+          "firstName": "Jan",
+          "lastName": "Nowak",
+          "credentials": [ { "type": "password", "value": "Nervarien", "temporary": false } ],
+          "attributes": { "hauthDeviceRegistered": "true" },
+          "requiredActions": []
+        }
+      ]
+    }
+
+webclient:
+  image: "poziomk3/auth-webclient"
+  imageTag: "v0.1.1"
+  replicas: 2
+  # these are derived for you but can be overridden
+  env:
+    NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "heartauth-web-client"
+    NEXT_PUBLIC_KEYCLOAK_ISSUER: ""  # auto: <scheme>://<host>/keycloak/realms/heartauth
+    NEXTAUTH_URL: ""                 # auto: <scheme>://<host>
+  secretEnv:
+    NEXTAUTH_SECRET: "JJLlAb6rD5TcbmDQQ7NJ3Bg7Xs2SEeB/FBhWR5Y4Dho="
+    NEXT_KEYCLOAK_CLIENT_SECRET: "cjwN39A3onxcHd9IXU3NkBnMn30Bp/DThkTNblrno6g="
+  resources: {}
+
+postgres:
+  enabled: true
+  image: postgres:16
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: ""
+  admin:
+    user: admin
+    password: admin
+  db:
+    name: keycloak
+    user: keycloak
+    password: "CHANGE_ME"

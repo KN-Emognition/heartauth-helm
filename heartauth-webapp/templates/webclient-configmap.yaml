@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-webclient-config
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+data:
+  NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: {{ .Values.webclient.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID | quote }}
+  NEXT_PUBLIC_KEYCLOAK_ISSUER: {{ default (printf "%s://%s%s/realms/heartauth" (include "iam.scheme" .) (include "iam.webHost" .) .Values.keycloak.http.relativePath) .Values.webclient.env.NEXT_PUBLIC_KEYCLOAK_ISSUER | quote }}
+  NEXTAUTH_URL: {{ default (printf "%s://%s" (include "iam.scheme" .) (include "iam.webHost" .)) .Values.webclient.env.NEXTAUTH_URL | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-webclient-secret
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  NEXTAUTH_SECRET: {{ .Values.webclient.secretEnv.NEXTAUTH_SECRET | quote }}
+  NEXT_KEYCLOAK_CLIENT_SECRET: {{ .Values.webclient.secretEnv.NEXT_KEYCLOAK_CLIENT_SECRET | quote }}
