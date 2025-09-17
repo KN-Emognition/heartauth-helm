@@ -122,7 +122,7 @@ spec:
       port: 5432
       targetPort: 5432
 {{- end }}
-
+---
 {{- if .Values.postgres.enabled }}
 apiVersion: v1
 kind: Secret

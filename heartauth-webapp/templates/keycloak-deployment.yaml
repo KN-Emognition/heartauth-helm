@@ -31,14 +31,14 @@ spec:
 {{- merge .Values.resourcesDefaults .Values.keycloak.resources | toYaml | nindent 12 }}
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: {{ .Values.keycloak.http.relativePath }}/health/ready
               port: {{ .Values.keycloak.health.port }}
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 12
           livenessProbe:
             httpGet:
-              path: /health/live
+              path: {{ .Values.keycloak.http.relativePath }}/health/live
               port: {{ .Values.keycloak.health.port }}
             initialDelaySeconds: 120
             periodSeconds: 10
