@@ -1,23 +1,43 @@
+{{- /* helper locals to avoid inline precedence issues */ -}}
+{{- $ns := include "iam.ns" . -}}
+{{- $labels := include "iam.labels" . -}}
+{{- $scheme := include "iam.scheme" . -}}
+{{- $host := include "iam.webHost" . -}}
+{{- $dbUser := default .Values.postgres.admin.user .Values.keycloak.db.user -}}
+{{- $dbName := default "postgres" .Values.keycloak.db.name -}}
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: keycloak-iam-config
-  namespace: {{ include "iam.ns" . }}
+  namespace: {{ $ns }}
   labels:
-    {{- include "iam.labels" . | nindent 4 }}
+{{- $labels | nindent 4 }}
 data:
+  # --- HTTP / proxy / hostname ---
   KC_HTTP_ENABLED: "true"
   KC_HTTP_RELATIVE_PATH: {{ .Values.keycloak.http.relativePath | quote }}
   KC_HTTP_MANAGEMENT_RELATIVE_PATH: {{ .Values.keycloak.http.managementRelativePath | quote }}
+  KC_PROXY: {{ .Values.keycloak.proxyMode | quote }}
+  KC_PROXY_HEADERS: {{ default "xforwarded" .Values.keycloak.proxyHeaders | quote }}
   KC_HOSTNAME_STRICT: {{ .Values.keycloak.hostname.strict | quote }}
   KC_HOSTNAME_BACKCHANNEL_DYNAMIC: {{ .Values.keycloak.hostname.backchannelDynamic | quote }}
-  KC_PROXY: {{ .Values.keycloak.proxyMode | quote }}
+  KC_HOSTNAME_URL: {{ printf "%s://%s%s" $scheme $host .Values.keycloak.http.relativePath | quote }}
+  KC_HOSTNAME_ADMIN_URL: {{ printf "%s://%s%s" $scheme $host .Values.keycloak.http.relativePath | quote }}
+
+  # --- DB settings ---
   KC_DB: "postgres"
-  KC_DB_USERNAME: {{ .Values.keycloak.db.user | quote }}
-  KC_DB_URL: {{ printf "jdbc:postgresql://%s:%d/%s" .Values.keycloak.db.host (.Values.keycloak.db.port | int) .Values.keycloak.db.name | quote }}
+  KC_DB_USERNAME: {{ $dbUser | quote }}
+  KC_DB_URL: {{ printf "jdbc:postgresql://%s:%v/%s" .Values.keycloak.db.host .Values.keycloak.db.port $dbName | quote }}
+{{- with .Values.keycloak.db.schema }}
+  KC_DB_SCHEMA: {{ . | quote }}
+{{- end }}
   KC_HEALTH_ENABLED: "true"
   KC_LOG_LEVEL: "knemognition.heartauth.authenticators:debug"
-  KC_HOSTNAME_URL: {{ printf "%s://%s%s" (include "iam.scheme" .) (include "iam.webHost" .) .Values.keycloak.http.relativePath | quote }}
+
+  # JVM headroom helps during first-boot build/import
+  JAVA_OPTS_APPEND: "-XX:InitialRAMPercentage=40 -XX:MaxRAMPercentage=75"
+
 ---
 apiVersion: v1
 kind: Secret
@@ -30,7 +50,9 @@ type: Opaque
 stringData:
   KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.admin.username | quote }}
   KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
-  KC_DB_PASSWORD: {{ .Values.keycloak.db.password | quote }}
+  # If keycloak.db.password is empty, fall back to postgres.admin.password
+  {{- $dbPass := (default .Values.postgres.admin.password .Values.keycloak.db.password) -}}
+  KC_DB_PASSWORD: {{ $dbPass | quote }}
 ---
 apiVersion: v1
 kind: ConfigMap

@@ -31,23 +31,32 @@ keycloak:
   image: "poziomk3/keycloak-iam"
   imageTag: "v1.0.0"
   replicas: 1
+
   http:
-    relativePath: "/keycloak"     # served under this path
-    managementRelativePath: "/"   # management endpoints base path
+    relativePath: "/keycloak"        # served under this path
+    managementRelativePath: "/"      # mgmt API base
+
   hostname:
-    strict: false
+    strict: false                    # you can flip to true later
     backchannelDynamic: false
-  proxyMode: "edge"               # good default behind Traefik
+
+  proxyMode: "edge"                  # behind Traefik
+  proxyHeaders: "xforwarded"         # IMPORTANT so KC trusts HTTPS via Traefik
+
+  # DB config: default DB "postgres", connect to your Postgres service
   db:
     host: keycloak-postgres
     port: 5432
-    name: postgres        # <-- use default DB
-    user: admin
-    password: "admin"
-    schema: admin               # stored in Secret; prefer SOPS/--set-file
+    name: postgres                   # <- default DB
+    # Leave user/password EMPTY to fall back to postgres.admin.* via your templates
+    user: ""                         # <- empty means "use postgres.admin.user"
+    password: ""                     # <- empty means "use postgres.admin.password"
+    # schema: ""                     # optional; omit to use "public"
+
+  # Keycloak bootstrap admin (for Keycloak itself, not Postgres)
   admin:
     username: "admin"
-    password: "admin"              # stored in Secret
+    password: "admin"            # stored in Secret
   health:
     port: 9000                     # Keycloak management port
   resources:
