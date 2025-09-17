@@ -31,7 +31,7 @@ stringData:
   KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.admin.username | quote }}
   KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
   KC_DB_PASSWORD: {{ .Values.keycloak.db.password | quote }}
-
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
