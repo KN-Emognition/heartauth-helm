@@ -122,3 +122,15 @@ spec:
       port: 5432
       targetPort: 5432
 {{- end }}
+
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-postgres-secret
+  namespace: {{ include "iam.ns" . }}
+type: Opaque
+stringData:
+  POSTGRES_USER: {{ .Values.postgres.admin.user | quote }}
+  POSTGRES_PASSWORD: {{ .Values.postgres.admin.password | quote }}
+{{- end }}

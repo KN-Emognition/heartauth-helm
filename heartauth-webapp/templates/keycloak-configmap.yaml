@@ -31,3 +31,23 @@ stringData:
   KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.admin.username | quote }}
   KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
   KC_DB_PASSWORD: {{ .Values.keycloak.db.password | quote }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-data
+  namespace: {{ include "iam.ns" . }}
+  labels:
+    {{- include "iam.labels" . | nindent 4 }}
+data:
+  realm.json: |-
+{{- $r := .Values.keycloak.realm -}}
+{{- if $r }}
+  {{- if kindIs "string" $r }}
+{{ $r | nindent 4 }}
+  {{- else }}
+{{ toJson $r | nindent 4 }}
+  {{- end }}
+{{- else }}
+{{ "{}" | nindent 4 }}
+{{- end }}
