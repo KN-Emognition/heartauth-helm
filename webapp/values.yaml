@@ -41,9 +41,10 @@ keycloak:
   db:
     host: keycloak-postgres
     port: 5432
-    name: postgres
+    name: postgres        # <-- use default DB
     user: admin
-    password: "admin"          # stored in Secret; prefer SOPS/--set-file
+    password: "admin"
+    schema: admin               # stored in Secret; prefer SOPS/--set-file
   admin:
     username: "admin"
     password: "admin"              # stored in Secret

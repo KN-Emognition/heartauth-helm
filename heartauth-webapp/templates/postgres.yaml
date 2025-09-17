@@ -1,14 +1,4 @@
 {{- if .Values.postgres.enabled }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: keycloak-postgres-initdb
-  namespace: {{ include "iam.ns" . }}
-  labels:
-    {{- include "iam.labels" . | nindent 4 }}
-{{- end }}
----
-{{- if .Values.postgres.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,19 +40,10 @@ spec:
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
-            - name: initdb
-              mountPath: /docker-entrypoint-initdb.d
-              readOnly: true
       volumes:
         - name: pgdata
           persistentVolumeClaim:
             claimName: keycloak-pgdata
-        - name: initdb
-          configMap:
-            name: keycloak-postgres-initdb
-            items:
-              - key: 01-init.sql
-                path: 01-init.sql
 {{- end }}
 ---
 {{- if .Values.postgres.enabled }}
