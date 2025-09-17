@@ -49,8 +49,8 @@ keycloak:
     port: 5432
     name: postgres                   # <- default DB
     # Leave user/password EMPTY to fall back to postgres.admin.* via your templates
-    user: ""                         # <- empty means "use postgres.admin.user"
-    password: ""                     # <- empty means "use postgres.admin.password"
+    user: "admin"                         # <- empty means "use postgres.admin.user"
+    password: "admin"                     # <- empty means "use postgres.admin.password"
     # schema: ""                     # optional; omit to use "public"
 
   # Keycloak bootstrap admin (for Keycloak itself, not Postgres)

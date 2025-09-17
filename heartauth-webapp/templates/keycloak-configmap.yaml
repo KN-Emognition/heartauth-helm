@@ -50,9 +50,7 @@ type: Opaque
 stringData:
   KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.admin.username | quote }}
   KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
-  # If keycloak.db.password is empty, fall back to postgres.admin.password
-  {{- $dbPass := (default .Values.postgres.admin.password .Values.keycloak.db.password) -}}
-  KC_DB_PASSWORD: {{ $dbPass | quote }}
+  KC_DB_PASSWORD: {{ $.Values.keycloak.db.password | quote }}
 ---
 apiVersion: v1
 kind: ConfigMap
