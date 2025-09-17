@@ -44,6 +44,9 @@ spec:
             initialDelaySeconds: 180
             periodSeconds: 10
             failureThreshold: 6
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits:   { cpu: "1",   memory: 2Gi }
           volumeMounts:
             - name: data
               mountPath: /opt/keycloak/data/import/realm.json
