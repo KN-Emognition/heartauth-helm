@@ -33,20 +33,14 @@ spec:
             - secretRef:    { name: keycloak-iam-secret }
           resources:
 {{- merge .Values.resourcesDefaults .Values.keycloak.resources | toYaml | nindent 12 }}
-
-
           readinessProbe:
-            httpGet:
-              path: /keycloak/health/ready
-              port: {{ .Values.keycloak.health.port }}
-            initialDelaySeconds: 20
+            tcpSocket:
+              port: 9000
             periodSeconds: 5
-            failureThreshold: 160
-
+            failureThreshold: 60
           livenessProbe:
-            httpGet:
-              path: /keycloak/health/live
-              port: {{ .Values.keycloak.health.port }}
+            tcpSocket:
+                port: 9000
             initialDelaySeconds: 180
             periodSeconds: 10
             failureThreshold: 6
