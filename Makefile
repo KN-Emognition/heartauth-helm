@@ -1,8 +1,8 @@
 # Config
-RELEASE    := hauth
-CHART_PATH := ./heartauth-core
-NAMESPACE  := hauth-test
-VALUES     := values.yaml
+RELEASE    := webapp
+CHART_PATH := ./heartauth-webapp
+NAMESPACE  := hauth-webapp-test
+VALUES     := webapp/values.yaml
 RENDERED   := rendered/core.yaml
 
 # Render manifests to file (no cluster changes)
