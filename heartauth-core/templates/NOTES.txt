@@ -1,0 +1,9 @@
+1) Hosts
+   Internal: {{ include "hauth.internalHost" . }}
+   External: {{ include "hauth.externalHost" . }}
+
+2) If using cert-manager, ensure the ClusterIssuer exists (e.g., letsencrypt).
+
+3) k3s Traefik: this chart sets ingressClassName=traefik and router.entrypoints web,websecure.
+
+4) Crypto keys are mounted at /data (pubKey.pem, privKey.pem, service-account.json).

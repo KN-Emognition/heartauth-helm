@@ -1,0 +1,89 @@
+{{- if .Values.orchestrator.external.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-orchestrator
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    app: external-orchestrator
+    {{- include "hauth.labels" . | nindent 4 }}
+spec:
+  replicas: {{ default $.Values.replicaDefaults .Values.orchestrator.external.replicas }}
+  selector:
+    matchLabels:
+      app: external-orchestrator
+  template:
+    metadata:
+      labels:
+        app: external-orchestrator
+    spec:
+      containers:
+        - name: app
+          image: {{ .Values.orchestrator.image }}:{{ .Values.orchestrator.imageTag }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ $.Values.service.orchestrator.port }}
+          env:
+{{- range $k, $v := .Values.orchestrator.external.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+{{- end }}
+          envFrom:
+            - secretRef:
+                name: external-orchestrator-secret
+          resources:
+{{- merge .Values.resourcesDefaults .Values.orchestrator.external.resources | toYaml | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: {{ $.Values.probes.orchestrator.readiness.path }}
+              port: {{ $.Values.service.orchestrator.port }}
+            initialDelaySeconds: {{ $.Values.probes.orchestrator.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.orchestrator.readiness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.orchestrator.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: {{ $.Values.probes.orchestrator.liveness.path }}
+              port: {{ $.Values.service.orchestrator.port }}
+            initialDelaySeconds: {{ $.Values.probes.orchestrator.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.orchestrator.liveness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.orchestrator.liveness.failureThreshold }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+      volumes:
+        - name: data
+          secret:
+            secretName: {{ default .Values.orchestrator.common.crypto.secretName .Values.orchestrator.common.crypto.existingSecret }}
+            defaultMode: 0400
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-orchestrator-secret
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    {{- include "hauth.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+{{- range $k, $v := .Values.orchestrator.external.secretEnv }}
+  {{ $k }}: {{ $v | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-orchestrator
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    app: external-orchestrator
+    {{- include "hauth.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: external-orchestrator
+  ports:
+    - name: http
+      port: {{ $.Values.service.orchestrator.port }}
+      targetPort: {{ $.Values.service.orchestrator.port }}
+{{- end }}

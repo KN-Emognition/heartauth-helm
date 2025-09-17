@@ -67,14 +67,15 @@ base64 -w0 kubeconfig-github-deployer > kubeconfig.b64
 # Certificate
 
 ```sh
+#!/usr/bin/env bash
 set -euo pipefail
 
-# ====== EDIT THESE ======
-EMAIL="karolzajac.0407@gmail.com"                 # <-- email for Let's Encrypt account
-DOMAIN="hauth.test.poziomk3.pl"         # <-- your app host (DNS -> VPS IP)
-NAMESPACE="default"                     # <-- namespace of your app
-TLS_SECRET_NAME="hauth-tls"    # <-- the Secret name your Ingress/values use
-# ========================
+EMAIL="karolzajac.0407@gmail.com"
+NAMESPACE="hauth-test"
+TLS_SECRET_NAME="hauth-tls"
+
+# add as many as you want (LE allows up to 100 names per cert)
+DOMAINS=( "hauth-internal.test.poziomk3.pl" "hauth-external.test.poziomk3.pl" "hauth.test.poziomk3.pl" )
 
 echo "[1/4] Ensure ports 80/443 are open (for ACME http-01 + HTTPS)"
 if command -v ufw >/dev/null 2>&1; then
@@ -113,13 +114,12 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-account-key
     solvers:
-    - http01:
-        ingress:
-          class: traefik
+      - http01:
+          ingress:
+            class: traefik
 EOF
 
-# (Optional) Pre-provision a cert for your host now.
-# Not strictly required if your Ingress is annotated and has tls:, but it speeds up first issuance.
+echo "[4.1] Request SAN certificate for: ${DOMAINS[*]}"
 cat <<EOF | kubectl -n "${NAMESPACE}" apply -f -
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -128,14 +128,12 @@ metadata:
 spec:
   secretName: ${TLS_SECRET_NAME}
   dnsNames:
-    - ${DOMAIN}
+$(for d in "${DOMAINS[@]}"; do echo "  - ${d}"; done)
   issuerRef:
     name: letsencrypt
     kind: ClusterIssuer
 EOF
 
-echo "Done ✅
-- cert-manager installed
-- ClusterIssuer 'letsencrypt' created
-- Certificate '${TLS_SECRET_NAME}' requested in namespace '${NAMESPACE}' for '${DOMAIN}'"
+echo "Done ✅  Requested cert '${TLS_SECRET_NAME}' in ns '${NAMESPACE}' for: ${DOMAINS[*]}"
+
 ```

@@ -1,0 +1,11 @@
+{{- if or .Values.orchestrator.internal.enabled .Values.orchestrator.external.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orchestrator-common-config
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    {{- include "hauth.labels" . | nindent 4 }}
+# purely a placeholder CM if you want to share non-secret defaults later
+---
+{{- end }}

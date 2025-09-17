@@ -1,0 +1,59 @@
+{{- if .Values.modelApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-api
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    app: model-api
+    {{- include "hauth.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.modelApi.replicas }}
+  selector:
+    matchLabels:
+      app: model-api
+  template:
+    metadata:
+      labels:
+        app: model-api
+    spec:
+      containers:
+        - name: app
+          image: {{ .Values.modelApi.image }}:{{ .Values.modelApi.imageTag }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ $.Values.service.modelApi.port }}
+          resources:
+{{- merge .Values.resourcesDefaults .Values.modelApi.resources | toYaml | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: {{ $.Values.probes.modelApi.readiness.path }}
+              port: {{ $.Values.service.modelApi.port }}
+            initialDelaySeconds: {{ $.Values.probes.modelApi.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.modelApi.readiness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.modelApi.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: {{ $.Values.probes.modelApi.liveness.path }}
+              port: {{ $.Values.service.modelApi.port }}
+            initialDelaySeconds: {{ $.Values.probes.modelApi.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.modelApi.liveness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.modelApi.liveness.failureThreshold }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-api
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    app: model-api
+    {{- include "hauth.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: model-api
+  ports:
+    - name: http
+      port: {{ $.Values.service.modelApi.port }}
+      targetPort: {{ $.Values.service.modelApi.port }}
+{{- end }}

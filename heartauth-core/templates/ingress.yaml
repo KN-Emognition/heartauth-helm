@@ -1,0 +1,54 @@
+{{- if and .Values.global.ingress.enabled (or .Values.orchestrator.internal.enabled .Values.orchestrator.external.enabled) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hauth-orchestrator
+  namespace: {{ include "hauth.ns" . }}
+  labels:
+    {{- include "hauth.labels" . | nindent 4 }}
+  annotations:
+{{- range $k, $v := .Values.global.ingress.annotations }}
+    {{ $k }}: {{ $v | quote }}
+{{- end }}
+spec:
+  ingressClassName: {{ .Values.global.ingress.className }}
+  {{- if .Values.global.ingress.tls.enabled }}
+  tls:
+    {{- if .Values.global.ingress.tls.useSeparateSecrets }}
+    - hosts: [ "{{ include "hauth.internalHost" . }}" ]
+      secretName: {{ .Values.global.ingress.tls.internalSecretName }}
+    - hosts: [ "{{ include "hauth.externalHost" . }}" ]
+      secretName: {{ .Values.global.ingress.tls.externalSecretName }}
+    {{- else }}
+    - hosts:
+        - "{{ include "hauth.internalHost" . }}"
+        - "{{ include "hauth.externalHost" . }}"
+      secretName: {{ .Values.global.ingress.tls.secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.orchestrator.internal.enabled }}
+    - host: "{{ include "hauth.internalHost" . }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: internal-orchestrator
+                port:
+                  number: {{ .Values.service.orchestrator.port }}
+    {{- end }}
+    {{- if .Values.orchestrator.external.enabled }}
+    - host: "{{ include "hauth.externalHost" . }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: external-orchestrator
+                port:
+                  number: {{ .Values.service.orchestrator.port }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,194 @@
+namespaceOverride: ""
+
+imagePullPolicy: IfNotPresent
+
+replicaDefaults: 2
+
+resourcesDefaults:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+certManager:
+  createClusterIssuer: false  
+  clusterIssuerName: letsencrypt
+  email: "karolzajac.0407@gmail.com"
+  server: https://acme-v02.api.letsencrypt.org/directory   
+  accountKeySecret: SekretnyNervarien
+
+global:
+  domain: "test.poziomk3.pl" 
+  subdomains:
+    internal: "hauth-internal"
+    external: "hauth-external"
+    webclient: "hauth" # example webclient host if you add it later
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    tls:
+      enabled: true
+      secretName: "hauth-tls"  # can be a single SAN cert covering both hosts
+
+core:
+  ## Redis (optionally managed in-chart)
+  redis:
+    enabled: true
+    image: redis:7-alpine
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClassName: "" # leave empty to use cluster default
+    resources: {}
+
+  ## Postgres (optionally managed in-chart)
+  postgres:
+    enabled: true
+    image: postgres:16
+    db:
+      name: orchestrator
+      user: orchestrator
+      password: "CHANGE_ME"
+    admin:
+      user: admin
+      password: admin
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClassName: ""
+    initSql: |
+      DO
+      $$BEGIN
+         IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'orchestrator') THEN
+            CREATE ROLE orchestrator LOGIN PASSWORD 'CHANGE_ME';
+         END IF;
+      END$$;
+
+      CREATE DATABASE orchestrator OWNER orchestrator;
+      GRANT ALL PRIVILEGES ON DATABASE orchestrator TO orchestrator;
+    resources: {}
+
+## Orchestrator shared crypto (mounted as files into /data)
+orchestrator:
+  image: "poziomk3/orchestrator"
+  imageTag: "latest"
+  common:
+    crypto:
+      createSecret: true
+      secretName: orchestrator-crypto
+      publicKey: |
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9f75N2A61NKrk13LyUBuJK0vQQ0u
+        vVJcUk22FZOWkB6GjPN1CGCrJMqrFa0X4GTJofTcjLCwjQ2O7NM3i9fAjw==
+        -----END PUBLIC KEY-----
+      privateKey: |
+        -----BEGIN PRIVATE KEY-----
+        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgN4KM71a3QSPS0Z52
+        z6DHwUnLUAMWNw/WProcjuZy1GihRANCAAT1/vk3YDrU0quTXcvJQG4krS9BDS69
+        UlxSTbYVk5aQHoaM83UIYKskyqsVrRfgZMmh9NyMsLCNDY7s0zeL18CP
+        -----END PRIVATE KEY-----
+      privateKeyPassword: "" 
+      firebaseServiceAccount: |
+        {
+          "type": "service_account",
+          "project_id": "knemognition-heartauth",
+          "private_key_id": "f0ce3546ca68d2fe49534bdfa9697568d7793be6",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC6eU3fZRm0idZG\nYxRQ4VM6qhviAtMiP76AWxLqDmjHIuAJSrY2ldsxBNvSx5V3r0UOjF1n8GZALCdg\nWlrC7EfptwLgaYcvt/16GmDBkBDIAYt8XmK/ur8CWQrag+VzB2H6IC+PjArW3Ndw\nQd+i6xbGmieFVDgfu5zG1fj6VSakbSTEOM7bNEg4BC9o2CZVYfB33hTm+NM2644W\nvXdHgnbyIVKLzElTcWoTZDSSvi1ZEaXB/eh7uJg4+BvRt7W0OzX10pl4htIfEDxy\nLcB+PVWEA1LjTjHG+W+HFuzPbQrcRYvOT0L/Dr9QtBLuPxqo3sxxATCqCPXtSUr7\nxWEATxbZAgMBAAECggEADjrUxpYDWce1dGpZ6eih9m12An+i7z+ESOz6QuZt2Dlo\n9YiQIlb58rILWNi+ZxNWzpsHQzfhA6di61tFxw9rFvKOa4PeCzYMB6n05Xx6DVsx\n0uAsgrNMYXBcT8vGIgqnj0PuwTJnftk8Lv6140uzkZ0ApE/mlwRU/MbmEKtYDy67\n58DxVo15qNysp5TWgqpF778mOZRbO5NNYGdFUM/iLOotndIAXlvVSeGXh6R9QPX5\nzJWULbHweQnGwEUaCr8F53gl6FKtWdqh0PV7ilQE3xhNryaB2bKZRNEXL8SfJyWO\nnkNYnYi4zlveG+jNvonGjyieIDLKY1xPLOUMG0VoMQKBgQD3V+pSpjBEwtsi/abV\nFpx5H4TEkTCRi7hvj7p+g0skiwHYgXkUeN2B2H/CQU5ScZ6GfW1UbG6ncMA02BlE\nODXLj7zgV5Lwd4vGoRFSWodF2D8i4e3lpogpWoThwY7o6XlLNY8vfYCIRD8FeEkh\nfLAA7egJM6S4gk7U6YGoQI7mcQKBgQDBAAZuxTXcN5u5ABmuysA9YSllfWQ+a/lF\ntuW00OADoK98zfli+BCWnkSkApfH8PprT8gCKJUsMaJ7JotabOkry69W9qdiWNXP\nJ8BfynK+mg12XCLnNF0iFy5PA50+EbR31pgd9GR1tkdoKlc5PJZyWFpskec7s6Si\nrzj9wQX66QKBgDVz32TbG2VQwvDN5kb4qvoWEKg2REu/6Sza38/FafDMxapXWKZO\n9HfCJOIDIPz6JusjogPzpvoyiKci6Frw1tdWCdhltJCZFTDo0Ah/Heq/L+3G65WM\nprJhKIRtQwgcpKTXP0lhEuzf6sqw0wUUoCijQVjzuy5Qot6qU+XbhcZRAoGAXhh1\nCmx75fH2qiuyWdXgBAzq8eBAj251CdgyBgYQMbSV2nNRsz7eV5CyRoQ9G+4RKWCs\nUuEWWYWZghE4v815oTCdO/jlgr1tAKKQ2CML7oGNLredDLwq7AQBP+SzNR/MrOCj\nKXeNwxYrmk2KWQ2BDB6nd2drJWBgVDC5yH3jPIECgYEAo1tiqtvy67jARncXtoTm\nFpkkHRj+cBCTT2VJHX/pudoxJYF+Wf7sYArTYonYfZxaHmbuJQOFEnyPdS4GzrKE\nDZqbb9BsKCcz1HWlAz+b4mg1DuUOi7t7kz5Jxd3goxN2szQ9mCedeQ6PBM6l4Opw\nMG6kSPtRr4//GwnCSq5xdkE=\n-----END PRIVATE KEY-----\n",
+          "client_email": "firebase-adminsdk-fbsvc@knemognition-heartauth.iam.gserviceaccount.com",
+          "client_id": "106641614828601697590",
+          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+          "token_uri": "https://oauth2.googleapis.com/token",
+          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+          "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40knemognition-heartauth.iam.gserviceaccount.com",
+          "universe_domain": "googleapis.com"
+        }
+
+      existingSecret: "" 
+
+  internal:
+    enabled: true
+    replicas: 2
+    env:
+      SPRING_PROFILES_ACTIVE: "internal"
+      DB_URL: "jdbc:postgresql://postgres:5432/orchestrator"
+      DB_USER: "orchestrator"
+      REDIS_URL: "redis://redis:6379"
+      JWT_KID: "id"
+      JWT_PRIVATE_KEY_LOCATION: "file:/data/privKey.pem"
+      JWT_PUBLIC_KEY_LOCATION: "file:/data/pubKey.pem"
+      FIREBASE_CREDENTIALS_LOCATION: "file:/data/service-account.json"
+      INTERNAL_CHALLENGE_DEFAULT_TTL: "120"
+      INTERNAL_CHALLENGE_MAX_TTL: "600"
+      INTERNAL_CHALLENGE_MIN_TTL: "60"
+      INTERNAL_CHALLENGE_NONCE_LENGTH: "32"
+      INTERNAL_PAIRING_ISSUER: "hauth-prod-internal:orchestrator"
+      INTERNAL_PAIRING_AUDIENCE: "hauth-prod:pairing"
+      INTERNAL_PAIRING_DEFAULT_TTL: "120"
+      INTERNAL_PAIRING_MAX_TTL: "600"
+      INTERNAL_PAIRING_MIN_TTL: "60"
+    secretEnv:
+      DB_PASSWORD: "CHANGE_ME"
+      API_KEY_KEYCLOAK: ""
+    resources: {}
+
+  external:
+    enabled: true
+    replicas: 2
+    env:
+      SPRING_PROFILES_ACTIVE: "external"
+      DB_URL: "jdbc:postgresql://postgres:5432/orchestrator"
+      DB_USER: "orchestrator"
+      REDIS_URL: "redis://redis:6379"
+      JWT_KID: "id"
+      JWT_PRIVATE_KEY_LOCATION: "file:/data/privKey.pem"
+      JWT_PUBLIC_KEY_LOCATION: "file:/data/pubKey.pem"
+      MODEL_API_BASE_URL: "http://model-api:8000"
+      EXTERNAL_PAIRING_NONCE_LENGTH: "32"
+      EXTERNAL_PAIRING_ISSUER: "hauth-prod-internal:orchestrator"
+      EXTERNAL_PAIRING_AUDIENCE: "hauth-prod:pairing"
+    secretEnv:
+      DB_PASSWORD: "CHANGE_ME"
+      JWT_PRIVATE_KEY_PASSWORD: ""
+      MODEL_API_API_KEY: ""
+    resources: {}
+
+modelApi:
+  enabled: true
+  image: "poziomk3/model-api"
+  imageTag: "latest"
+  replicas: 2
+  resources: {}
+
+service:
+  orchestrator:
+    port: 8080
+  modelApi:
+    port: 8000
+
+probes:
+  orchestrator:
+    readiness:
+      path: /actuator/health
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      failureThreshold: 6
+    liveness:
+      path: /actuator/health
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      failureThreshold: 6
+  modelApi:
+    readiness:
+      path: /health
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      failureThreshold: 6
+    liveness:
+      path: /health
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      failureThreshold: 6
