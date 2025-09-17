@@ -24,7 +24,7 @@ global:
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
     tls:
       enabled: true
-      secretName: hauth-tls
+      secretName: webapp-tls-test
     # scheme for URLs in env; auto-computed: https if tls.enabled else http
 
 keycloak:
