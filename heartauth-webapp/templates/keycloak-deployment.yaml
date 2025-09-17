@@ -22,7 +22,7 @@ spec:
         - name: keycloak
           image: {{ .Values.keycloak.image }}:{{ .Values.keycloak.imageTag }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          args: ["start", "--import-realm", "--http-enabled=true"]
+          args: ["start", "--import-realm", "--http-enabled=true","--optimized"]
           ports:
             - containerPort: 8080
             - containerPort: {{ .Values.keycloak.health.port }}
