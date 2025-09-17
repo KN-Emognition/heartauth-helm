@@ -6,29 +6,6 @@ metadata:
   namespace: {{ include "iam.ns" . }}
   labels:
     {{- include "iam.labels" . | nindent 4 }}
-data:
-  01-init.sql: |
-    DO
-    $$BEGIN
-       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .Values.postgres.db.user }}') THEN
-          CREATE ROLE {{ .Values.postgres.db.user }} LOGIN PASSWORD '{{ .Values.postgres.db.password }}';
-       END IF;
-    END$$;
-
-    DO
-    $$BEGIN
-       IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '{{ .Values.postgres.db.name }}') THEN
-          CREATE DATABASE {{ .Values.postgres.db.name }} OWNER {{ .Values.postgres.db.user }};
-       END IF;
-    END$$;
-
-    ALTER DATABASE {{ .Values.postgres.db.name }} OWNER TO {{ .Values.postgres.db.user }};
-    GRANT CREATE ON DATABASE {{ .Values.postgres.db.name }} TO {{ .Values.postgres.db.user }};
-
-    -- Make 'public' usable if you stick to it
-    \connect {{ .Values.postgres.db.name }}
-    ALTER SCHEMA public OWNER TO {{ .Values.postgres.db.user }};
-    GRANT USAGE, CREATE ON SCHEMA public TO {{ .Values.postgres.db.user }};
 {{- end }}
 ---
 {{- if .Values.postgres.enabled }}

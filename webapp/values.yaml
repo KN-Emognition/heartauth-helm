@@ -41,9 +41,9 @@ keycloak:
   db:
     host: keycloak-postgres
     port: 5432
-    name: keycloak
-    user: keycloak
-    password: "CHANGE_ME"          # stored in Secret; prefer SOPS/--set-file
+    name: postgres
+    user: admin
+    password: "admin"          # stored in Secret; prefer SOPS/--set-file
   admin:
     username: "admin"
     password: "admin"              # stored in Secret
@@ -133,7 +133,3 @@ postgres:
   admin:
     user: admin
     password: admin
-  db:
-    name: keycloak
-    user: keycloak
-    password: "CHANGE_ME"
