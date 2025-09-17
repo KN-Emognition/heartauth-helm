@@ -70,7 +70,7 @@ core:
 
       CREATE DATABASE orchestrator OWNER orchestrator;
       GRANT ALL PRIVILEGES ON DATABASE orchestrator TO orchestrator;
-      
+
       ALTER SCHEMA public OWNER TO orchestrator;
       GRANT USAGE, CREATE ON SCHEMA public TO orchestrator;
     resources: {}
@@ -116,6 +116,9 @@ orchestrator:
     enabled: true
     replicas: 2
     env:
+      SPRING_FLYWAY_SCHEMAS: "app"
+      SPRING_FLYWAY_DEFAULT_SCHEMA: "app"
+      SPRING_FLYWAY_CREATE_SCHEMAS: "true"
       SPRING_PROFILES_ACTIVE: "internal"
       DB_URL: "jdbc:postgresql://postgres:5432/orchestrator"
       DB_USER: "orchestrator"
@@ -142,6 +145,9 @@ orchestrator:
     enabled: true
     replicas: 2
     env:
+      SPRING_FLYWAY_SCHEMAS: "app"
+      SPRING_FLYWAY_DEFAULT_SCHEMA: "app"
+      SPRING_FLYWAY_CREATE_SCHEMAS: "true"
       SPRING_PROFILES_ACTIVE: "external"
       DB_URL: "jdbc:postgresql://postgres:5432/orchestrator"
       DB_USER: "orchestrator"
