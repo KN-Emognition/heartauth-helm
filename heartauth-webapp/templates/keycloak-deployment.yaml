@@ -22,7 +22,11 @@ spec:
         - name: keycloak
           image: {{ .Values.keycloak.image }}:{{ .Values.keycloak.imageTag }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          args: ["start", "--import-realm", "--http-enabled=true","--optimized"]
+          command: ["sh","-lc"]
+          args:
+          - |
+            /opt/keycloak/bin/kc.sh build && \
+            exec /opt/keycloak/bin/kc.sh start --optimized --http-enabled=true --import-realm
           ports:
             - containerPort: 8080
             - containerPort: {{ .Values.keycloak.health.port }}
