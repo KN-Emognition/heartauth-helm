@@ -1,3 +1,5 @@
+{{- $mgmt := .Values.keycloak.http.managementRelativePath | default "/" -}}
+{{- $mgmt = printf "%s/" (trimSuffix "/" $mgmt) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,12 +31,14 @@ spec:
             - secretRef:    { name: keycloak-iam-secret }
           resources:
 {{- merge .Values.resourcesDefaults .Values.keycloak.resources | toYaml | nindent 12 }}
+
+
           startupProbe:
             httpGet:
               path: {{ printf "%shealth/ready" $mgmt | quote }}
               port: {{ .Values.keycloak.health.port }}
             periodSeconds: 5
-            failureThreshold: 120   # give first boot time (build + import)
+            failureThreshold: 120
 
           readinessProbe:
             httpGet:
