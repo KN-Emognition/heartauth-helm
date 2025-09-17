@@ -75,7 +75,7 @@ core:
 ## Orchestrator shared crypto (mounted as files into /data)
 orchestrator:
   image: "poziomk3/orchestrator"
-  imageTag: "latest"
+  imageTag: "v0.3.0"
   common:
     crypto:
       createSecret: true
@@ -159,7 +159,7 @@ orchestrator:
 modelApi:
   enabled: true
   image: "poziomk3/model-api"
-  imageTag: "latest"
+  imageTag: "v0.1.0"
   replicas: 2
   resources: {}
 
