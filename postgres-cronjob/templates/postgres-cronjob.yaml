@@ -1,0 +1,152 @@
+{{- /* ---- locals (nil-safe) defined before YAML starts ---- */ -}}
+{{- $img := .Values.image | default dict -}}
+{{- $repo := default "postgres" $img.repository -}}
+{{- $tag := default "16" $img.tag -}}
+{{- $pull := default "IfNotPresent" $img.pullPolicy -}}
+
+{{- $psql := .Values.psql | default dict -}}
+{{- $onErr := ternary "--set=ON_ERROR_STOP=1" "" (default true $psql.stopOnError) -}}
+{{- $args := (join " " (default (list) $psql.extraArgs)) | default "" -}}
+
+{{- $sqlcm := .Values.sqlConfigMap | default dict -}}
+{{- $sqlcmEnabled := default false $sqlcm.enabled -}}
+{{- $sqlcmKey := default "job.sql" $sqlcm.key -}}
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "postgres-cronjob.fullname" . }}
+  labels:
+    app: {{ include "postgres-cronjob.fullname" . }}
+    {{- include "postgres-cronjob.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  {{- if .Values.concurrencyPolicy }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  {{- end }}
+  {{- if ne .Values.suspend nil }}
+  suspend: {{ .Values.suspend }}
+  {{- end }}
+  {{- if .Values.successfulJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  {{- end }}
+  {{- if .Values.failedJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  {{- end }}
+  jobTemplate:
+    spec:
+      {{- if .Values.backoffLimit }}
+      backoffLimit: {{ .Values.backoffLimit }}
+      {{- end }}
+      {{- if .Values.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+      {{- end }}
+      template:
+        metadata:
+          labels:
+            app: {{ include "postgres-cronjob.fullname" . }}
+            {{- include "postgres-cronjob.labels" . | nindent 12 }}
+            {{- with .Values.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ include "postgres-cronjob.serviceAccountName" . }}
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          containers:
+            - name: {{ include "postgres-cronjob.name" . }}
+              image: "{{ $repo }}:{{ $tag }}"
+              imagePullPolicy: {{ $pull }}
+              securityContext:
+                {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              {{- $hasEnv := or .Values.env .Values.secretEnv }}
+              {{- $hasEnv := or .Values.env .Values.secretEnv }}
+              {{- if $hasEnv }}
+              env:
+                {{- if .Values.env }}
+                  {{- if kindIs "map" .Values.env }}
+                    {{- range $k, $v := .Values.env }}
+                - name: {{ $k }}
+                  value: {{ $v | quote }}
+                    {{- end }}
+                  {{- else }}
+                    {{- toYaml .Values.env | nindent 2 }}
+                  {{- end }}
+                {{- end }}
+
+                {{- if .Values.secretEnv }}
+                  {{- $defaultSecret := (include "postgres-cronjob.fullname" .) -}}
+                  {{- if and (hasKey .Values "secret") (kindIs "map" .Values.secret) (hasKey .Values.secret "name") -}}
+                    {{- $defaultSecret = default $defaultSecret .Values.secret.name -}}
+                  {{- else if and (hasKey .Values "secret") (kindIs "string" .Values.secret) -}}
+                    {{- $defaultSecret = .Values.secret -}}
+                  {{- end }}
+                  {{- range $name, $ref := .Values.secretEnv }}
+                - name: {{ $name }}
+                  valueFrom:
+                    secretKeyRef:
+                      {{- if kindIs "map" $ref }}
+                      name: {{ $ref.name }}
+                      key: {{ $ref.key }}
+                      {{- else }}
+                      name: {{ $defaultSecret }}
+                      key: {{ $ref }}
+                      {{- end }}
+                  {{- end }}
+                {{- end }}
+              {{- end }}
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  {{- if $sqlcmEnabled }}
+                  # SQL from mounted ConfigMap file
+                  psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" {{ $onErr }} {{ $args }} -f /scripts/{{ $sqlcmKey }}
+                  {{- else }}
+                  # Inline SQL via base64 → psql (no heredoc pitfalls)
+                  echo '{{ .Values.sql | b64enc }}' | base64 -d | \
+                    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" {{ $onErr }} {{ $args }}
+                  {{- end }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              {{- if $sqlcmEnabled }}
+              volumeMounts:
+                - name: sql-script
+                  mountPath: /scripts
+              {{- end }}
+          {{- if $sqlcmEnabled }}
+          volumes:
+            - name: sql-script
+              configMap:
+                name: {{ include "postgres-cronjob.sqlConfigMapName" . }}
+          {{- end }}
+          nodeSelector:
+            {{- toYaml .Values.nodeSelector | nindent 12 }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          tolerations:
+            {{- toYaml .Values.tolerations | nindent 12 }}
+---
+{{- if (default false .Values.sqlConfigMap.enabled) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "postgres-cronjob.sqlConfigMapName" . }}
+  labels:
+    {{- include "postgres-cronjob.labels" . | nindent 4 }}
+data:
+  {{ default "job.sql" .Values.sqlConfigMap.key }}: |
+{{- .Values.sql | nindent 4 }}
+{{- end }}

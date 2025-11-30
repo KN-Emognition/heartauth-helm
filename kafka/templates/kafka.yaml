@@ -1,0 +1,175 @@
+---
+# templates/service-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.headlessName }}
+  labels:
+    {{- include "kafka.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ include "kafka.fullname" . }}
+  ports:
+    - name: broker
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+    - name: controller
+      port: {{ .Values.service.controllerPort }}
+      targetPort: {{ .Values.service.controllerPort }}
+
+---
+# templates/service.yaml (optional client service)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kafka.fullname" . }}
+  labels:
+    {{- include "kafka.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "kafka.fullname" . }}
+  ports:
+    - name: broker
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+
+---
+# templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kafka.fullname" . }}
+  labels:
+    app: {{ include "kafka.fullname" . }}
+    {{- include "kafka.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Values.service.headlessName }}
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "kafka.fullname" . }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ include "kafka.fullname" . }}
+        {{- include "kafka.labels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+        - name: kafka
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: broker
+            - containerPort: {{ .Values.service.controllerPort }}
+              name: controller
+
+          # Use cp-kafka's entrypoint, but compute NODE_ID + ADVERTISED_LISTENERS first
+          command: ["/bin/bash","-lc"]
+          args:
+            - |
+              export KAFKA_NODE_ID=${HOSTNAME##*-}
+              export KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://{{ include "kafka.fullname" . }}-${HOSTNAME##*-}.{{ .Values.service.headlessName }}:{{ .Values.service.port }}
+              exec /etc/confluent/docker/run
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - name: KAFKA_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://:{{ .Values.service.port }},CONTROLLER://:{{ .Values.service.controllerPort }}"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "{{ include "kafka.controllerQuorumVoters" . }}"
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data"
+            {{- if .Values.env }}
+              {{- if kindIs "map" .Values.env }}
+                {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+                {{- end }}
+              {{- else }}
+                {{- toYaml .Values.env | nindent 12 }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.secretEnv }}
+              {{- $defaultSecret := (include "kafka.fullname" .) -}}
+              {{- if and (hasKey .Values "secret") (kindIs "map" .Values.secret) (hasKey .Values.secret "name") -}}
+                {{- $defaultSecret = default $defaultSecret .Values.secret.name -}}
+              {{- else if and (hasKey .Values "secret") (kindIs "string" .Values.secret) -}}
+                {{- $defaultSecret = .Values.secret -}}
+              {{- end }}
+              {{- range $name, $ref := .Values.secretEnv }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  {{- if kindIs "map" $ref }}
+                  name: {{ $ref.name }}
+                  key: {{ $ref.key }}
+                  {{- else }}
+                  name: {{ $defaultSecret }}
+                  key: {{ $ref }}
+                  {{- end }}
+              {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka
+
+          readinessProbe:
+            exec:
+              command: ["bash","-lc","/usr/bin/kafka-broker-api-versions --bootstrap-server 127.0.0.1:{{ .Values.service.port }} >/dev/null 2>&1"]
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+
+          livenessProbe:
+            exec:
+              command: ["bash","-lc","test -f /var/lib/kafka/data/meta.properties"]
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes: []
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.storage.storageClass }}
+        storageClassName: {{ .Values.storage.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+
+---

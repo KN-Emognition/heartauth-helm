@@ -1,0 +1,143 @@
+{{- if and .Values.enabled (eq .Values.kind "Ingress") (gt (len .Values.routes) 0) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ingtf.fullname" . }}
+  labels:
+    {{- include "ingtf.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingressClassName }}
+    kubernetes.io/ingress.class: {{ .Values.ingressClassName | quote }}
+    {{- end }}
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.traefik.middlewareRefs }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ join "," . | quote }}
+    {{- end }}
+spec:
+  {{- if .Values.ingressClassName }}
+  ingressClassName: {{ .Values.ingressClassName | quote }}
+  {{- end }}
+  {{- if .Values.tls.enabled }}
+  tls:
+    {{- if eq .Values.tls.mode "single" }}
+    - secretName: {{ .Values.tls.secretName | quote }}
+      hosts:
+        {{- range (splitList "\n" (include "ingtf.hosts" .)) }}
+        - {{ . | quote }}
+        {{- end }}
+    {{- else if eq .Values.tls.mode "perHost" }}
+      {{- range .Values.tls.perHost }}
+    - secretName: {{ .secretName | quote }}
+      hosts: [ {{ .host | quote }} ]
+      {{- end }}
+    {{- else if eq .Values.tls.mode "custom" }}
+      {{- range .Values.tls.custom }}
+    - secretName: {{ .secretName | quote }}
+      hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.routes }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path | default "/" | quote }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+---
+{{- if and .Values.enabled (eq .Values.kind "IngressRoute") (gt (len .Values.routes) 0) }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "ingtf.fullname" . }}
+  labels:
+    {{- include "ingtf.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  entryPoints:
+    {{- range .Values.traefik.entryPoints }}
+    - {{ . | quote }}
+    {{- end }}
+  routes:
+    {{- $full := include "ingtf.fullname" . -}}
+    {{- range $hi, $h := .Values.routes }}
+      {{- $host := $h.host -}}
+      {{- $hostMW := $h.middlewares | default list -}}
+      {{- range $pi, $p := $h.paths }}
+    - match: Host(`{{ $host }}`) && PathPrefix(`{{ $p.path | default "/" }}`)
+      kind: Rule
+      services:
+        - name: {{ $p.service.name }}
+          port: {{ $p.service.port }}
+      {{- $mwlist := list -}}
+      {{- if $p.stripPrefix }}
+      {{- $mwname := printf "%s-mw-%d-%d-strip" $full $hi $pi -}}
+      {{- $mwlist = append $mwlist (dict "name" $mwname) -}}
+      {{- end }}
+      {{- if $p.middlewares }}
+      {{- $mwlist = concat $mwlist $p.middlewares -}}
+      {{- end }}
+      {{- if $hostMW }}
+      {{- $mwlist = concat $mwlist $hostMW -}}
+      {{- end }}
+      {{- if .Values.traefik.middlewareRefs }}
+      {{- /* allow global route middlewares */ -}}
+      {{- $mwlist = concat $mwlist .Values.traefik.middlewareRefs -}}
+      {{- end }}
+      {{- if gt (len $mwlist) 0 }}
+      middlewares:
+        {{- range $mwlist }}
+        - name: {{ .name }}
+          {{- if .namespace }}
+          namespace: {{ .namespace }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- if .Values.tls.enabled }}
+  tls:
+    secretName: {{ .Values.tls.ingressRouteSecretName | quote }}
+    {{- if .Values.traefik.router.tls.certResolver }}
+    certResolver: {{ .Values.traefik.router.tls.certResolver | quote }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+---
+{{- if and .Values.enabled (eq .Values.kind "IngressRoute") .Values.generateMiddlewares.stripPrefix }}
+{{- $full := include "ingtf.fullname" . -}}
+{{- range $hi, $h := .Values.routes }}
+  {{- range $pi, $p := $h.paths }}
+    {{- if $p.stripPrefix }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ printf "%s-mw-%d-%d-strip" $full $hi $pi }}
+  labels:
+    {{- include "ingtf.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ $p.path | default "/" | quote }}
+---
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

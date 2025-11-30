@@ -1,0 +1,113 @@
+{{- if .Values.auth.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "redis.fullname" . }}-secret
+  labels:
+    {{- include "redis.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  REDIS_PASSWORD: {{ .Values.auth.password | quote }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "redis.fullname" . }}
+  labels:
+    {{- include "redis.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "redis.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "redis.fullname" . }}
+        {{- include "redis.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- range .Values.args }}
+            - {{ . | quote }}
+            {{- end }}
+            {{- range .Values.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+            {{- if .Values.auth.enabled }}
+            - "--requirepass"
+            - "$(REDIS_PASSWORD)"
+            {{- end }}
+          ports:
+            - containerPort: 6379
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          {{- if .Values.auth.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "redis.fullname" . }}-secret
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          {{- if and .Values.persistence.enabled .Values.persistence.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | quote }}
+          {{- else if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.pvcName }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.persistence.pvcName }}
+  labels:
+    {{- include "redis.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis.fullname" . }}
+  labels:
+    {{- include "redis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "redis.fullname" . }}
+  ports:
+    - name: redis
+      port: {{ .Values.service.port }}
+      targetPort: 6379

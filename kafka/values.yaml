@@ -1,0 +1,61 @@
+# helm template ./kafka -f kafka/values.yaml > kafka/rendered/core.yaml
+nameOverride:
+fullnameOverride: "kafka"
+
+image:
+  repository: confluentinc/cp-kafka
+  tag: 7.6.1 # maps to Kafka 3.7.x in Confluent Platform line
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+storage:
+  size: 10Gi
+  storageClass: ""
+  deleteClaim: false
+
+service:
+  headlessName: kafka-headless
+  port: 9092
+  controllerPort: 9093
+  
+probes:
+  readiness:
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  liveness:
+    initialDelaySeconds: 40
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 6
+secretEnv:
+  CLUSTER_ID: CLUSTER_ID
+secret:
+  name:
+resources:
+  requests:
+    cpu: 300m
+    memory: 600Mi
+  limits:
+    cpu: "1"
+    memory: 2Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+commonLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+clusterIdSecret:
+  name: "kafka-cluster-id"
+  create: true
+  value: ""
+
+extraEnv: []

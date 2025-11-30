@@ -1,0 +1,46 @@
+{{- if .Values.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "tlscert.fullname" . }}
+  labels:
+    {{- include "tlscert.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  secretName: {{ .Values.secretName }}
+  {{- with .Values.commonName }}
+  {{- if ne . "" }}
+  commonName: {{ . | quote }}
+  {{- end }}
+  {{- end }}
+  dnsNames:
+    {{- range (splitList "\n" (include "tlscert.dnsNames" .)) }}
+    - {{ . | quote }}
+    {{- end }}
+  issuerRef:
+    name: {{ .Values.issuerRef.name }}
+    kind: {{ .Values.issuerRef.kind | default "ClusterIssuer" }}
+    group: {{ .Values.issuerRef.group | default "cert-manager.io" }}
+{{- end }}
+---
+{{- if .Values.issuer.create }}
+apiVersion: cert-manager.io/v1
+kind: {{ ternary "ClusterIssuer" "Issuer" (eq .Values.issuer.kind "ClusterIssuer") }}
+metadata:
+  name: {{ .Values.issuer.name }}
+  {{- if ne .Values.issuer.kind "ClusterIssuer" }}
+  {{- end }}
+spec:
+  acme:
+    email: {{ .Values.issuer.acme.email | quote }}
+    server: {{ .Values.issuer.acme.server | quote }}
+    privateKeySecretRef:
+      name: {{ .Values.issuer.acme.privateKeySecretName | default .Values.issuer.name }}
+    solvers:
+      - http01:
+          ingress:
+            class: {{ .Values.issuer.acme.http01.ingressClass | default "traefik" | quote }}
+{{- end }}

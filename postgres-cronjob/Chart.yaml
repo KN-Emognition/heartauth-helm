@@ -1,0 +1,6 @@
+apiVersion: v2
+name: postgres-cronjob-helm
+description: Heartauth PostgreSQL cronjob chart.
+type: application
+version: 0.1.0
+appVersion: "16"

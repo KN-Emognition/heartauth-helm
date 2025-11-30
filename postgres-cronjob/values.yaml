@@ -1,0 +1,33 @@
+# helm template ./postgres-cronjob -f postgres-cronjob/values.yaml > postgres-cronjob/rendered/core.yaml
+fullnameOverride: "postgres-cronjob"
+
+image:
+  repository: postgres
+  tag: "16"
+  pullPolicy: IfNotPresent
+
+schedule: "0 3 * * *"
+
+env:
+  DB_HOST: 
+  DB_PORT: 
+  DB_NAME: 
+
+secretEnv:
+  DB_USER: POSTGRES_USER
+  PGPASSWORD: POSTGRES_PASSWORD
+secret:
+  name: 
+serviceAccount:
+  create: false
+  name: ""
+
+psql:
+  stopOnError: true
+  extraArgs: []
+
+sql: |
+  TRUNCATE TABLE test_table RESTART IDENTITY CASCADE;
+sqlConfigMap:
+  enabled: true
+  key: "job.sql"

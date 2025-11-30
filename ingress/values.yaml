@@ -1,0 +1,67 @@
+enabled: true
+
+# Render with standard Kubernetes Ingress OR Traefik IngressRoute
+kind: Ingress           # one of: Ingress, IngressRoute
+
+nameOverride: ""
+fullnameOverride: "ingress-hauth"
+
+# ----- Controller-wide settings -----
+ingressClassName: "traefik"      # for Ingress
+annotations: {}                  # extra annotations on Ingress/IngressRoute metadata
+
+traefik:
+  entryPoints: ["websecure"]     # used by IngressRoute
+  # Global middlewares (apply to the WHOLE Ingress via annotation OR to all routes in IngressRoute)
+  middlewareRefs: []             # IngressRoute: [{name: "mw", namespace: ""}] | Ingress: ["ns-mw@kubernetescrd"]
+  # Optional router-level settings when NOT using cert-manager
+  router:
+    tls:
+      certResolver: ""           # e.g. "lets-encrypt"
+    # you can add other router options here if needed
+
+# ----- TLS (cert-manager friendly) -----
+tls:
+  enabled: true
+  # Ingress supports multiple secrets per host (single/perHost/custom)
+  mode: single                   # single | perHost | custom
+  secretName: "hauth-tls-test"      # used when mode=single
+  perHost: []                    # [{ host: "a.example.com", secretName: "a-tls" }]
+  custom: []                     # [{ secretName: "wildcard-tls", hosts: ["*.example.com"] }]
+  # IngressRoute: Traefik supports ONE secret per IngressRoute.
+  ingressRouteSecretName: "hauth-tls-test"
+
+# ----- Routes (the core) -----
+# Each item is a host with 1..N paths. Works for both Ingress and IngressRoute.
+routes: []
+# Example A: two hosts, one path each
+# routes:
+#   - host: "internal.example.com"
+#     middlewares: []  # IngressRoute only: [{name: "foo", namespace: ""}]
+#     paths:
+#       - path: "/"
+#         pathType: Prefix
+#         service: { name: "internal-orchestrator", port: 8080 }
+#         stripPrefix: false          # IngressRoute only (auto MW)
+#         middlewares: []             # IngressRoute only
+#   - host: "external.example.com"
+#     paths:
+#       - path: "/"
+#         pathType: Prefix
+#         service: { name: "external-orchestrator", port: 8080 }
+
+# Example B: one host, multiple paths
+# routes:
+#   - host: "orchestrator.example.com"
+#     paths:
+#       - path: "/"
+#         service: { name: "internal-orchestrator", port: 8080 }
+#       - path: "/external"
+#         service: { name: "external-orchestrator", port: 8080 }
+#         stripPrefix: true
+
+# ----- Middleware generation (IngressRoute only) -----
+generateMiddlewares:
+  stripPrefix: true     # when a path has stripPrefix: true, create a Middleware with that prefix and attach it
+
+commonLabels: {}

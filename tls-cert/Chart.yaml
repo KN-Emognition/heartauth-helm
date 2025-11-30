@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tls-cert-helm
+description: cert-manager Certificate with flexible DNS names
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

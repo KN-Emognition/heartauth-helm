@@ -1,0 +1,53 @@
+# helm template ./redis -f redis/values.yaml > redis/rendered/core.yaml
+
+nameOverride: ""
+fullnameOverride: "redis"   
+
+image:
+  repository: redis
+  tag: 7.2.5
+  pullPolicy: IfNotPresent
+
+auth:
+  enabled: false
+  password: ""             
+
+args:
+  - "redis-server"
+  - "--appendonly"
+  - "yes"
+  - "--maxmemory"
+  - "256mb"
+  - "--maxmemory-policy"
+  - "allkeys-lru"
+extraArgs: []               
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClassName: ""
+  existingClaim: ""         
+  pvcName: "redis-data"     
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+livenessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 10
+
+service:
+  type: ClusterIP
+  port: 6379
+
+commonLabels: {}
+podAnnotations: {}

@@ -1,0 +1,36 @@
+enabled: true
+
+fullnameOverride: "ingress-tls"
+
+secretName: "hauth-tls-test"
+
+issuer:
+  create: true                    
+  kind: Issuer                 
+  name: letsencrypt-hauth-tls
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: email
+    privateKeySecretName: hauth-tls-test-secret-acme
+    http01:
+      ingressClass: traefik    
+
+
+issuerRef:
+  name: letsencrypt-hauth-tls      
+  kind: Issuer                 
+  group: cert-manager.io
+
+domain:
+  base: "poziomk3.pl"   
+  includeRoot: false       
+  subdomains:             
+    - "internal"
+    - "external"
+
+extraDnsNames: []         
+
+commonName: ""
+
+commonLabels: {}
+annotations: {}

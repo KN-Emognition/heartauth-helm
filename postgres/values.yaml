@@ -1,0 +1,51 @@
+# helm template ./postgres -f postgres/values.yaml > postgres/rendered/core.yaml
+nameOverride: ""
+fullnameOverride: "postgres" 
+
+image:
+  repository: postgres
+  tag: 16.3
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5432
+  targetPort: 5432
+
+db:
+  name: "appdb"             
+  user: "orchestrator"      
+  password: "changeme"   
+init:
+  enabled: true   
+env:
+secretEnv:
+  POSTGRES_USER: POSTGRES_USER
+  POSTGRES_PASSWORD: POSTGRES_PASSWORD
+
+secret:
+  name: 
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClassName:    
+  existingClaim:       
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+commonLabels: {}
+podAnnotations: {}
